@@ -1,0 +1,20 @@
+# Build output
+build/
+out/
+
+# Gradle
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IntelliJ Platform Gradle Plugin
+.intellijPlatform/
+
+# Kotlin
+.kotlin/
+
+# IDE
+.idea/
+*.iml
+
+# macOS
+.DS_Store

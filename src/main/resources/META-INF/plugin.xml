@@ -1,0 +1,102 @@
+<idea-plugin>
+    <id>com.intch.css-modules-scoped-usages</id>
+    <name>CSS Modules Scoped Usages</name>
+    <vendor>intch</vendor>
+
+    <description><![CDATA[
+        When you Find Usages (or Cmd+Click) a class selector inside a
+        <code>*.module.scss</code> / <code>*.module.css</code> / <code>*.module.less</code>
+        file, the search is restricted to only the JS/TS files that actually
+        <em>import that specific module</em> — instead of matching every
+        identically-named class reference across the whole project.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.css</depends>
+    <depends>JavaScript</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <findUsagesHandlerFactory
+            order="first"
+            implementation="com.intch.cssmodules.CssModuleFindUsagesHandlerFactory"/>
+        <postStartupActivity implementation="com.intch.cssmodules.CssScopedStartup"/>
+
+        <completion.contributor language="TypeScript JSX" id="cssModStylesTsx" order="first"
+            implementationClass="com.intch.cssmodules.CssModuleStylesCompletion"/>
+        <completion.contributor language="TypeScript" id="cssModStylesTs" order="first"
+            implementationClass="com.intch.cssmodules.CssModuleStylesCompletion"/>
+        <completion.contributor language="JavaScript" id="cssModStylesJs" order="first"
+            implementationClass="com.intch.cssmodules.CssModuleStylesCompletion"/>
+        <completion.contributor language="ECMAScript 6" id="cssModStylesEs6" order="first"
+            implementationClass="com.intch.cssmodules.CssModuleStylesCompletion"/>
+        <completion.contributor language="JSX Harmony" id="cssModStylesJsx" order="first"
+            implementationClass="com.intch.cssmodules.CssModuleStylesCompletion"/>
+
+        <localInspection language="SCSS"
+            shortName="CssModuleUnusedClass"
+            displayName="Unused CSS module class"
+            groupName="CSS"
+            enabledByDefault="true"
+            level="WARNING"
+            implementationClass="com.intch.cssmodules.CssModuleUnusedClassInspection"/>
+        <localInspection language="SASS"
+            shortName="CssModuleUnusedClassSass"
+            displayName="Unused CSS module class"
+            groupName="CSS"
+            enabledByDefault="true"
+            level="WARNING"
+            implementationClass="com.intch.cssmodules.CssModuleUnusedClassInspection"/>
+        <localInspection language="LESS"
+            shortName="CssModuleUnusedClassLess"
+            displayName="Unused CSS module class"
+            groupName="CSS"
+            enabledByDefault="true"
+            level="WARNING"
+            implementationClass="com.intch.cssmodules.CssModuleUnusedClassInspection"/>
+        <localInspection language="CSS"
+            shortName="CssModuleUnusedClassCss"
+            displayName="Unused CSS module class"
+            groupName="CSS"
+            enabledByDefault="true"
+            level="WARNING"
+            implementationClass="com.intch.cssmodules.CssModuleUnusedClassInspection"/>
+
+        <localInspection language="TypeScript JSX"
+            shortName="CssModuleUnknownClassTsx"
+            displayName="Unknown CSS module class"
+            groupName="CSS" enabledByDefault="true" level="ERROR"
+            implementationClass="com.intch.cssmodules.CssModuleUnknownClassInspection"/>
+        <localInspection language="TypeScript"
+            shortName="CssModuleUnknownClassTs"
+            displayName="Unknown CSS module class"
+            groupName="CSS" enabledByDefault="true" level="ERROR"
+            implementationClass="com.intch.cssmodules.CssModuleUnknownClassInspection"/>
+        <localInspection language="JavaScript"
+            shortName="CssModuleUnknownClassJs"
+            displayName="Unknown CSS module class"
+            groupName="CSS" enabledByDefault="true" level="ERROR"
+            implementationClass="com.intch.cssmodules.CssModuleUnknownClassInspection"/>
+        <localInspection language="ECMAScript 6"
+            shortName="CssModuleUnknownClassEs6"
+            displayName="Unknown CSS module class"
+            groupName="CSS" enabledByDefault="true" level="ERROR"
+            implementationClass="com.intch.cssmodules.CssModuleUnknownClassInspection"/>
+        <localInspection language="JSX Harmony"
+            shortName="CssModuleUnknownClassJsx"
+            displayName="Unknown CSS module class"
+            groupName="CSS" enabledByDefault="true" level="ERROR"
+            implementationClass="com.intch.cssmodules.CssModuleUnknownClassInspection"/>
+    </extensions>
+
+    <extensions defaultExtensionNs="JavaScript">
+        <importCandidatesFactory
+            implementation="com.intch.cssmodules.CssModuleImportCandidatesFactory"/>
+        <importCandidatesFilterFactory
+            implementation="com.intch.cssmodules.CssModuleImportFilterFactory"/>
+    </extensions>
+
+    <applicationListeners>
+        <listener class="com.intch.cssmodules.CssScopedAppListener"
+                  topic="com.intellij.ide.AppLifecycleListener"/>
+    </applicationListeners>
+</idea-plugin>
