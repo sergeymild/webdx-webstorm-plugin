@@ -79,10 +79,14 @@ template-literal keys (`` t(`a.${x}`) ``).
    (so it never redlines the whole project).
    → `I18nUnknownKeyInspection`
 
-9. **Go-to-definition + Find Usages on a key.** Cmd/Ctrl+click a key to jump to its
-   entry in `en.json`; Find Usages from the JSON side works too (one reference,
-   both directions).
-   → `I18nKeyReference` / `I18nKeyReferenceContributor`
+9. **Go-to-definition + scoped Find Usages on a key.** Cmd/Ctrl+click a key to jump
+   to its entry in `en.json`. Find Usages on a key property in any locale JSON lists
+   **only the `t('key')` / `<Trans i18nKey>` references that resolve to that exact
+   key** — not every property with the same name, and not the same key in sibling
+   locale files (the JSON plugin links those, so they're filtered out). Works from
+   any locale file (resolves to the canonical key source first).
+   → `I18nKeyReference` / `I18nKeyReferenceContributor` /
+   `I18nKeyFindUsagesHandlerFactory`
 
 10. **Interpolation-variable completion + checks.** For `t('key', { … })`, the key's
    value `{{placeholders}}` (`step_label: "Step {{step}}"` → `step`) drive:
@@ -234,7 +238,7 @@ read logs:
 ## Tests
 
 The suite runs the real IntelliJ engine against the locally-installed WebStorm SDK
-on in-memory `BasePlatformTestCase` fixtures (no mocks). 90 tests, all green.
+on in-memory `BasePlatformTestCase` fixtures (no mocks). 93 tests, all green.
 
 ```bash
 JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
@@ -292,6 +296,7 @@ and helpers return empty. Verify in a throwaway test with
 | `I18nInterpolationIndexTest` | index: a key's placeholders + the config's default variables |
 | `I18nInterpolationInspectionTest` | unknown/missing interpolation variable, no-object, spread, reserved/default |
 | `I18nOptionsCompletionTest` | completing the `t(key, { … })` object with placeholder names |
+| `I18nKeyFindUsagesTest` | Find Usages on a key property → only the resolving code refs (cross-locale filtered) |
 
 > **JSX PSI note:** in a `.tsx`, a `<Trans/>` element is itself a `JSLiteralExpression`
 > subtype (`JSXXmlLiteralExpression`), and the `i18nKey` value is an `XmlAttributeValue`

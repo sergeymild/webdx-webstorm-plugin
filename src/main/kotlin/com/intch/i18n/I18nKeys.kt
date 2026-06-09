@@ -30,6 +30,17 @@ internal object I18nKeys {
     fun valueOf(jsonFile: PsiFile, key: String): String? =
         (resolveProperty(jsonFile, key)?.value as? JsonStringLiteral)?.value
 
+    /** The dot-path of a [property] in the locale JSON (inverse of [resolveProperty]). */
+    fun pathOf(property: JsonProperty): String {
+        val parts = ArrayList<String>()
+        var prop: JsonProperty? = property
+        while (prop != null) {
+            parts.add(prop.name)
+            prop = (prop.parent as? JsonObject)?.parent as? JsonProperty
+        }
+        return parts.asReversed().joinToString(".")
+    }
+
     /** The JsonProperty for [key] (string leaf), or null if it is not a valid key. */
     fun resolveProperty(jsonFile: PsiFile, key: String): JsonProperty? {
         var obj = rootObject(jsonFile) ?: return null

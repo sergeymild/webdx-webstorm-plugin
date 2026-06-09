@@ -100,6 +100,10 @@
         <psi.referenceContributor language="JavaScript"
             implementation="com.intch.i18n.I18nKeyReferenceContributor"/>
 
+        <findUsagesHandlerFactory
+            order="first"
+            implementation="com.intch.i18n.I18nKeyFindUsagesHandlerFactory"/>
+
         <localInspection language="TypeScript JSX"
             shortName="I18nUnknownKeyTsx"
             displayName="Unknown i18n translation key"

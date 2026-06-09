@@ -41,4 +41,16 @@ class I18nKeysTest : BasePlatformTestCase() {
         // An intermediate object path is not a leaf key.
         assertNull(I18nKeys.resolveProperty(json, "common.action"))
     }
+
+    fun testPathOfRoundTrips() {
+        val json = myFixture.configureByText("en.json", sample)
+        val leaf = I18nKeys.resolveProperty(json, "common.action.copy")!!
+        assertEquals("common.action.copy", I18nKeys.pathOf(leaf))
+        val branch = I18nKeys.pathOf(json.let {
+            // the "common" property (a branch) should still produce its path
+            (it as com.intellij.json.psi.JsonFile).topLevelValue
+                .let { v -> (v as com.intellij.json.psi.JsonObject).findProperty("page")!! }
+        })
+        assertEquals("page", branch)
+    }
 }
