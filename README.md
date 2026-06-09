@@ -100,6 +100,13 @@ template-literal keys (`` t(`a.${x}`) ``).
    (not `<Trans>`).
    → `I18nOptions`, `I18nKeys.placeholdersOf`, `I18nConfig.defaultVariableNames`
 
+11. **Go-to-placeholder from an option key.** Cmd/Ctrl+click an option-object key
+   (`t('k', { price: … })`) to jump into the locale JSON with the caret on that
+   `{{price}}` inside the key's value. Non-placeholder keys (reserved options,
+   typos) don't navigate.
+   → `I18nPlaceholderReference` (registered in `I18nKeyReferenceContributor`),
+   `I18nOptions.keyForOptionProperty`
+
 The key-source JSON is located **from the i18n config**: the file that imports
 `initReactI18next` is found, and its `import en from '…'` is followed to the JSON.
 If detection fails, it falls back to convention (`*/translations/en.json`).
@@ -238,7 +245,7 @@ read logs:
 ## Tests
 
 The suite runs the real IntelliJ engine against the locally-installed WebStorm SDK
-on in-memory `BasePlatformTestCase` fixtures (no mocks). 93 tests, all green.
+on in-memory `BasePlatformTestCase` fixtures (no mocks). 96 tests, all green.
 
 ```bash
 JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
@@ -297,6 +304,7 @@ and helpers return empty. Verify in a throwaway test with
 | `I18nInterpolationInspectionTest` | unknown/missing interpolation variable, no-object, spread, reserved/default |
 | `I18nOptionsCompletionTest` | completing the `t(key, { … })` object with placeholder names |
 | `I18nKeyFindUsagesTest` | Find Usages on a key property → only the resolving code refs (cross-locale filtered) |
+| `I18nPlaceholderNavigationTest` | Cmd+Click an option key → caret on the `{{placeholder}}` in the value |
 
 > **JSX PSI note:** in a `.tsx`, a `<Trans/>` element is itself a `JSLiteralExpression`
 > subtype (`JSXXmlLiteralExpression`), and the `i18nKey` value is an `XmlAttributeValue`

@@ -10,7 +10,9 @@ import com.intellij.psi.PsiReferenceContributor
 import com.intellij.psi.PsiReferenceProvider
 import com.intellij.psi.PsiReferenceRegistrar
 import com.intellij.psi.xml.XmlAttributeValue
+import com.intellij.json.psi.JsonStringLiteral
 import com.intellij.lang.javascript.psi.JSLiteralExpression
+import com.intellij.lang.javascript.psi.JSProperty
 import com.intellij.util.ProcessingContext
 
 /**
@@ -45,5 +47,22 @@ class I18nKeyReferenceContributor : PsiReferenceContributor() {
         }
         registrar.registerReferenceProvider(PlatformPatterns.psiElement(JSLiteralExpression::class.java), provider)
         registrar.registerReferenceProvider(PlatformPatterns.psiElement(XmlAttributeValue::class.java), provider)
+
+        // Option-object key (`{ price: … }`) -> the {{price}} placeholder in the value.
+        val placeholderProvider = object : PsiReferenceProvider() {
+            override fun getReferencesByElement(element: PsiElement, context: ProcessingContext): Array<PsiReference> {
+                val property = element as? JSProperty ?: return PsiReference.EMPTY_ARRAY
+                val name = property.name ?: return PsiReference.EMPTY_ARRAY
+                val key = I18nOptions.keyForOptionProperty(property) ?: return PsiReference.EMPTY_ARRAY
+                val project = element.project
+                if (name !in I18nKeyIndex.placeholders(project, key)) return PsiReference.EMPTY_ARRAY
+                val valueLiteral = I18nKeyIndex.resolve(project, key)?.value as? JsonStringLiteral
+                    ?: return PsiReference.EMPTY_ARRAY
+                val nameId = property.nameIdentifier ?: return PsiReference.EMPTY_ARRAY
+                val range = nameId.textRange.shiftLeft(property.textRange.startOffset)
+                return arrayOf(I18nPlaceholderReference(property, range, valueLiteral, name))
+            }
+        }
+        registrar.registerReferenceProvider(PlatformPatterns.psiElement(JSProperty::class.java), placeholderProvider)
     }
 }
