@@ -99,6 +99,28 @@ lookup-элементы (английское значение в tail text) —
 ## Не входит в объём (YAGNI)
 
 - Hover-превью значения и проверка пропущенных переводов в других локалях.
-- Проверка параметров интерполяции (`{{name}}`).
 - Поддержка переименованных биндингов и кастомных namespace.
 - Quick-fix «создать ключ».
+
+## Прирост: проверка интерполяции (добавлено 2026-06-09)
+
+Для `t('key', { … })` значение ключа (`{{placeholder}}`) задаёт ожидаемые
+переменные.
+
+- **Парсинг плейсхолдеров** — `I18nKeys.placeholdersOf(value)` (регекс `{{ x }}`,
+  тримит пробелы, для `{{x, fmt}}` берёт имя до запятой).
+  `I18nKeyIndex.placeholders(project, key)` достаёт значение ключа и парсит.
+- **defaultVariables из конфига** — `I18nConfig.defaultVariableNames(initText)`
+  вытаскивает ключи из `interpolation.defaultVariables { … }`
+  (`specialistsCount`, `specialistsCountFull`); они никогда не обязательны.
+- **`I18nOptions`** — находит `t(...)`-вызов и его 2-й аргумент (только call-форма,
+  не `<Trans>`); allowlist зарезервированных опций i18next (`count`, `context`,
+  `defaultValue`, …).
+- **`I18nInterpolationInspection`** (WARNING): неизвестный ключ объекта (опечатка),
+  пропущенный обязательный плейсхолдер, или вовсе нет объекта опций; `...spread` /
+  вычисляемый ключ выключают проверку «пропущено».
+- **`I18nOptionsCompletion`**: автокомплит имён плейсхолдеров внутри
+  `t('key', { <caret> })` (исключая уже введённые).
+- Тесты: `I18nPlaceholdersLogicTest`, `I18nDefaultVariablesLogicTest`,
+  `I18nInterpolationIndexTest`, `I18nInterpolationInspectionTest`,
+  `I18nOptionsCompletionTest`. Итого 90 тестов.

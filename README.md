@@ -84,6 +84,18 @@ template-literal keys (`` t(`a.${x}`) ``).
    both directions).
    → `I18nKeyReference` / `I18nKeyReferenceContributor`
 
+10. **Interpolation-variable completion + checks.** For `t('key', { … })`, the key's
+   value `{{placeholders}}` (`step_label: "Step {{step}}"` → `step`) drive:
+   - completion of the option object keys inside `{ <caret> }` → `I18nOptionsCompletion`;
+   - warnings on an **unknown** option key (typo `{ stp }`), a **missing** required
+     placeholder, or a missing options object entirely → `I18nInterpolationInspection`.
+   Auto-provided `interpolation.defaultVariables` (parsed from the config:
+   `specialistsCount`, `specialistsCountFull`) and reserved i18next options
+   (`count`, `context`, `defaultValue`, …) are never flagged; `...spread` /
+   computed keys disable the missing-key check. Applies to the call form only
+   (not `<Trans>`).
+   → `I18nOptions`, `I18nKeys.placeholdersOf`, `I18nConfig.defaultVariableNames`
+
 The key-source JSON is located **from the i18n config**: the file that imports
 `initReactI18next` is found, and its `import en from '…'` is followed to the JSON.
 If detection fails, it falls back to convention (`*/translations/en.json`).
@@ -222,7 +234,7 @@ read logs:
 ## Tests
 
 The suite runs the real IntelliJ engine against the locally-installed WebStorm SDK
-on in-memory `BasePlatformTestCase` fixtures (no mocks). 69 tests, all green.
+on in-memory `BasePlatformTestCase` fixtures (no mocks). 90 tests, all green.
 
 ```bash
 JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
@@ -275,6 +287,11 @@ and helpers return empty. Verify in a throwaway test with
 | `I18nCallSitesTest` | the call-site matcher (`t`/`i18next.t`/`i18n.t`/`<Trans i18nKey>`, guards) |
 | `I18nUnknownKeyInspectionTest` | unknown-key warning; quiet on known/dynamic; `<Trans>` |
 | `I18nKeyReferenceTest` | go-to-definition (key → JSON) + key completion via the reference |
+| `I18nPlaceholdersLogicTest` | pure: `{{placeholder}}` extraction (whitespace, `{{x, fmt}}`, empty) |
+| `I18nDefaultVariablesLogicTest` | pure: parse `interpolation.defaultVariables` keys from config |
+| `I18nInterpolationIndexTest` | index: a key's placeholders + the config's default variables |
+| `I18nInterpolationInspectionTest` | unknown/missing interpolation variable, no-object, spread, reserved/default |
+| `I18nOptionsCompletionTest` | completing the `t(key, { … })` object with placeholder names |
 
 > **JSX PSI note:** in a `.tsx`, a `<Trans/>` element is itself a `JSLiteralExpression`
 > subtype (`JSXXmlLiteralExpression`), and the `i18nKey` value is an `XmlAttributeValue`

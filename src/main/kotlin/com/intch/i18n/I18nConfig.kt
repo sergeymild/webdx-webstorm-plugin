@@ -19,15 +19,28 @@ internal object I18nConfig {
     fun findKeySource(project: Project): VirtualFile? =
         fromConfig(project) ?: byConvention(project)
 
+    /** Variable names auto-provided by the i18n config (never required at call sites). */
+    fun defaultVariables(project: Project): Set<String> {
+        val initVf = initFile(project) ?: return emptySet()
+        val text = runCatching { VfsUtilCore.loadText(initVf) }.getOrNull() ?: return emptySet()
+        return defaultVariableNames(text)
+    }
+
     private fun fromConfig(project: Project): VirtualFile? {
+        val initVf = initFile(project) ?: return null
+        val text = runCatching { VfsUtilCore.loadText(initVf) }.getOrNull() ?: return null
+        val path = enImportPath(text) ?: return null
+        val target = resolveRelative(initVf.parent, path)
+        return target?.takeIf { it.name.endsWith(".json", ignoreCase = true) }
+    }
+
+    /** The file that wires up i18n (imports `initReactI18next`), or null. */
+    private fun initFile(project: Project): VirtualFile? {
         val scope = GlobalSearchScope.projectScope(project)
         for (ext in JS_EXTS) {
             for (vf in FilenameIndex.getAllFilesByExt(project, ext, scope)) {
                 val text = runCatching { VfsUtilCore.loadText(vf) }.getOrNull() ?: continue
-                if (!text.contains("initReactI18next")) continue
-                val path = enImportPath(text) ?: continue
-                val target = resolveRelative(vf.parent, path)
-                if (target != null && target.name.endsWith(".json", ignoreCase = true)) return target
+                if (text.contains("initReactI18next")) return vf
             }
         }
         return null
@@ -65,5 +78,13 @@ internal object I18nConfig {
     fun enImportPath(initFileText: String): String? =
         EN_IMPORT.find(initFileText)?.groupValues?.get(1)
 
+    /** Names declared in `interpolation.defaultVariables { … }` — auto-provided, never required. */
+    fun defaultVariableNames(initFileText: String): Set<String> {
+        val block = DEFAULT_VARS_BLOCK.find(initFileText)?.groupValues?.get(1) ?: return emptySet()
+        return IDENTIFIER_KEY.findAll(block).map { it.groupValues[1] }.toSet()
+    }
+
     private val EN_IMPORT = Regex("""import\s+en\s+from\s+['"]([^'"]+)['"]""")
+    private val DEFAULT_VARS_BLOCK = Regex("""defaultVariables\s*:\s*\{([^}]*)\}""")
+    private val IDENTIFIER_KEY = Regex("""(\w+)\s*:""")
 }

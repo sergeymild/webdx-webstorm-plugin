@@ -33,4 +33,14 @@ internal object I18nKeyIndex {
         val file = keySourceFile(project) ?: return null
         return I18nKeys.resolveProperty(file, key)
     }
+
+    /** The `{{placeholder}}` names in [key]'s value (empty if the key is unknown). */
+    fun placeholders(project: Project, key: String): Set<String> {
+        val file = keySourceFile(project) ?: return emptySet()
+        val value = I18nKeys.valueOf(file, key) ?: return emptySet()
+        return I18nKeys.placeholdersOf(value)
+    }
+
+    /** Variable names auto-provided by `interpolation.defaultVariables` in the i18n config. */
+    fun defaultVariables(project: Project): Set<String> = I18nConfig.defaultVariables(project)
 }

@@ -17,6 +17,19 @@ internal object I18nKeys {
         return out
     }
 
+    /** The `{{placeholder}}` names interpolated in a translation [value] (`{{x, fmt}}` -> `x`). */
+    fun placeholdersOf(value: String): Set<String> =
+        PLACEHOLDER.findAll(value)
+            .map { it.groupValues[1].substringBefore(',').trim() }
+            .filter { it.isNotEmpty() }
+            .toSet()
+
+    private val PLACEHOLDER = Regex("""\{\{([^}]*)\}\}""")
+
+    /** The string value of [key], or null if it is not a valid string-leaf key. */
+    fun valueOf(jsonFile: PsiFile, key: String): String? =
+        (resolveProperty(jsonFile, key)?.value as? JsonStringLiteral)?.value
+
     /** The JsonProperty for [key] (string leaf), or null if it is not a valid key. */
     fun resolveProperty(jsonFile: PsiFile, key: String): JsonProperty? {
         var obj = rootObject(jsonFile) ?: return null

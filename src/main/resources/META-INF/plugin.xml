@@ -125,6 +125,43 @@
             displayName="Unknown i18n translation key"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.intch.i18n.I18nUnknownKeyInspection"/>
+
+        <localInspection language="TypeScript JSX"
+            shortName="I18nInterpolationTsx"
+            displayName="i18n interpolation variables"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.intch.i18n.I18nInterpolationInspection"/>
+        <localInspection language="TypeScript"
+            shortName="I18nInterpolationTs"
+            displayName="i18n interpolation variables"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.intch.i18n.I18nInterpolationInspection"/>
+        <localInspection language="JavaScript"
+            shortName="I18nInterpolationJs"
+            displayName="i18n interpolation variables"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.intch.i18n.I18nInterpolationInspection"/>
+        <localInspection language="ECMAScript 6"
+            shortName="I18nInterpolationEs6"
+            displayName="i18n interpolation variables"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.intch.i18n.I18nInterpolationInspection"/>
+        <localInspection language="JSX Harmony"
+            shortName="I18nInterpolationJsx"
+            displayName="i18n interpolation variables"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.intch.i18n.I18nInterpolationInspection"/>
+
+        <completion.contributor language="TypeScript JSX" order="first"
+            implementationClass="com.intch.i18n.I18nOptionsCompletion"/>
+        <completion.contributor language="TypeScript" order="first"
+            implementationClass="com.intch.i18n.I18nOptionsCompletion"/>
+        <completion.contributor language="JavaScript" order="first"
+            implementationClass="com.intch.i18n.I18nOptionsCompletion"/>
+        <completion.contributor language="ECMAScript 6" order="first"
+            implementationClass="com.intch.i18n.I18nOptionsCompletion"/>
+        <completion.contributor language="JSX Harmony" order="first"
+            implementationClass="com.intch.i18n.I18nOptionsCompletion"/>
     </extensions>
 
     <applicationListeners>
