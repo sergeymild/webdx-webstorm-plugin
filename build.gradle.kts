@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.intch"
-version = "1.0.17"
+version = "1.0.19"
 
 repositories {
     mavenCentral()
@@ -48,7 +48,6 @@ tasks.test {
     // Light fixtures need the headless UI bits available.
     systemProperty("java.awt.headless", "true")
     testLogging {
-        showStandardStreams = true
         events("passed", "failed", "skipped")
     }
 }

@@ -21,10 +21,21 @@ they work regardless of how (or whether) the TS service types the import.
    identically-named `styles.foo` in the project.
    → `CssModuleFindUsagesHandlerFactory`
 
-2. **Auto-import of a sibling CSS module.**
-   Typing `styles` (or any unresolved name) offers
-   `import styles from './ThisComponent.module.scss'` for CSS modules sitting in
-   the same folder, and the module matching the current file name is ranked first.
+2. **Auto-import of a sibling CSS module (completion).**
+   Typing `styles` offers a completion entry per sibling CSS module. Selecting one
+   **renames what you typed to the chosen binding and inserts the import** in a
+   single step. The binding is named after the module unless it's the component's
+   own module: in `Profile.tsx`, `Profile.module.scss` → `import styles from
+   './Profile.module.scss'`, while `Sidebar.module.scss` → renames `styles` to
+   `sidebar` and adds `import sidebar from './Sidebar.module.scss'`
+   (`user-profile.module.scss` → `userProfile`; non-identifier names fall back to
+   `styles`). The import line is inserted by direct document editing, so it works
+   without the TS service.
+   → `CssModuleStylesCompletion` (entries + insert), `importBindingFor` (naming)
+
+   The unresolved-reference quick fix (Alt+Enter) still offers the siblings too,
+   but only *adds* an import — it can't rename the reference — so it keeps the
+   typed name (`import styles from './Sidebar.module.scss'`) to avoid broken code.
    → `CssModuleImportCandidatesFactory`
 
 3. **Clean import popup.**
@@ -224,13 +235,19 @@ and helpers return empty. Verify in a throwaway test with
 | `CssModulesPsiTest` | `CssModules` PSI helpers (collect/resolve/bindings/importers/used) |
 | `CssModuleInspectionTest` | unused-class (CSS) + unknown-class (JS/TS) via real highlighting |
 | `CssModuleCompletionTest` | `styles.` completion + LSP-garbage suppression |
+| `CssModuleAutoImportCompletionTest` | completion auto-import: module-named entry, rename + insert import, no dup |
+| `CssModuleImportBindingTest` | `importBindingFor` binding-name derivation |
 | `CssModuleFindUsagesTest` | scoped Find Usages (only files importing that exact module) |
 
-### Known gap: auto-import is not fixture-testable
-Features 2 + 3 (`CssModuleImportCandidatesFactory` / filter) can't be tested on the
-light fixture: it doesn't run the TS service, so `styles` is never flagged
-unresolved and the import quick-fix machinery never triggers (probed — no
-highlights, no quick-fixes). Verify those manually in the running IDE.
+### Partial gap: the Alt+Enter quick-fix path is not fixture-testable
+The completion-driven auto-import (entry + rename + import insertion) IS fully
+tested (`CssModuleAutoImportCompletionTest`), because the import is inserted by
+direct document editing rather than the TS-service-backed import machinery.
+
+What's NOT fixture-testable is the **Alt+Enter unresolved-reference quick fix**
+(`CssModuleImportCandidatesFactory` / filter): the light fixture doesn't run the
+TS service, so `styles` is never flagged unresolved and that quick-fix never
+triggers (probed — no highlights, no quick-fixes). Verify it manually in the IDE.
 
 ---
 

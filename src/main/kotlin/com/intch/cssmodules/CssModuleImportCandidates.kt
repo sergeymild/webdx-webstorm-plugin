@@ -22,6 +22,39 @@ private fun isCssModuleFileName(name: String): Boolean {
         n.endsWith(".module.less")
 }
 
+/** `ProfileSettingsMobile.tsx` <-> `ProfileSettingsMobile.module.scss`. */
+private fun matchesCurrentFile(moduleName: String, currentName: String): Boolean {
+    val base = currentName.substringBeforeLast('.')
+    return moduleName.startsWith("$base.module", ignoreCase = true)
+}
+
+private val MODULE_SUFFIX = Regex("""\.module\.(css|scss|sass|less)$""", RegexOption.IGNORE_CASE)
+
+/**
+ * Local binding to use when auto-importing [moduleFileName] into [currentFileName].
+ * If the module is the one named after the current component, keep what the user
+ * typed ([typedName]); otherwise derive a camelCase name from the module file
+ * (`Sidebar.module.scss` -> `sidebar`, `user-profile.module.scss` -> `userProfile`).
+ * Falls back to [typedName] when no valid identifier can be formed.
+ */
+internal fun importBindingFor(typedName: String, moduleFileName: String, currentFileName: String): String {
+    if (matchesCurrentFile(moduleFileName, currentFileName)) return typedName
+    val base = moduleFileName.replaceFirst(MODULE_SUFFIX, "")
+    return camelCaseIdentifier(base) ?: typedName
+}
+
+/** `UserProfile` / `user-profile` / `user_profile` -> `userProfile`; null if not a valid identifier. */
+private fun camelCaseIdentifier(base: String): String? {
+    val words = base.split(Regex("[^A-Za-z0-9]+")).filter { it.isNotEmpty() }
+    if (words.isEmpty()) return null
+    val result = buildString {
+        words.forEachIndexed { i, w ->
+            append(if (i == 0) w.replaceFirstChar { it.lowercaseChar() } else w.replaceFirstChar { it.uppercaseChar() })
+        }
+    }
+    return result.takeIf { it.first().isJavaIdentifierStart() }
+}
+
 /**
  * When an identifier (e.g. `styles`) is unresolved, offer to import a CSS module
  * (`*.module.scss|css|less`) that sits right next to the current file —
@@ -60,8 +93,11 @@ private class CssModuleImportProvider(
 
         for (vf in siblings) {
             val psiFile = psiManager.findFile(vf) ?: continue
-            // Build a DEFAULT import: `import <name> from './X.module.scss'`.
-            // Siblings live in the same directory, so the specifier is always "./<file>".
+            // Build a DEFAULT import under the typed name: `import <name> from './X.module.scss'`.
+            // This path (the unresolved-reference quick fix) only adds the import — it does not
+            // rename the reference — so it must keep the typed name or it would leave broken code.
+            // Renaming to a module-derived binding (`Sidebar.module.scss` -> `sidebar`) is handled
+            // by the completion entry in CssModuleStylesCompletion, which also rewrites the usage.
             val specifier = "./${vf.name}"
             val moduleDescriptor = JSModuleDescriptor.SimpleModuleDescriptor(psiFile, specifier)
             val candidate = JSImportCandidateDescriptor(
@@ -74,12 +110,6 @@ private class CssModuleImportProvider(
             processor.processCandidate(candidate)
             LOG.warn("[CSS-SCOPED] import candidate: 'import $name from $specifier'")
         }
-    }
-
-    /** `ProfileSettingsMobile.tsx` <-> `ProfileSettingsMobile.module.scss`. */
-    private fun matchesCurrentFile(moduleName: String, currentName: String): Boolean {
-        val base = currentName.substringBeforeLast('.')
-        return moduleName.startsWith("$base.module", ignoreCase = true)
     }
 }
 
