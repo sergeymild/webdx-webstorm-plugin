@@ -95,6 +95,38 @@
             implementation="com.intch.cssmodules.CssModuleImportFilterFactory"/>
     </extensions>
 
+    <!-- i18n: go-to-definition / completion / inspection for react-i18next keys. -->
+    <extensions defaultExtensionNs="com.intellij">
+        <psi.referenceContributor language="JavaScript"
+            implementation="com.intch.i18n.I18nKeyReferenceContributor"/>
+
+        <localInspection language="TypeScript JSX"
+            shortName="I18nUnknownKeyTsx"
+            displayName="Unknown i18n translation key"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.intch.i18n.I18nUnknownKeyInspection"/>
+        <localInspection language="TypeScript"
+            shortName="I18nUnknownKeyTs"
+            displayName="Unknown i18n translation key"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.intch.i18n.I18nUnknownKeyInspection"/>
+        <localInspection language="JavaScript"
+            shortName="I18nUnknownKeyJs"
+            displayName="Unknown i18n translation key"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.intch.i18n.I18nUnknownKeyInspection"/>
+        <localInspection language="ECMAScript 6"
+            shortName="I18nUnknownKeyEs6"
+            displayName="Unknown i18n translation key"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.intch.i18n.I18nUnknownKeyInspection"/>
+        <localInspection language="JSX Harmony"
+            shortName="I18nUnknownKeyJsx"
+            displayName="Unknown i18n translation key"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.intch.i18n.I18nUnknownKeyInspection"/>
+    </extensions>
+
     <applicationListeners>
         <listener class="com.intch.cssmodules.CssScopedAppListener"
                   topic="com.intellij.ide.AppLifecycleListener"/>

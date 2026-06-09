@@ -59,6 +59,36 @@ they work regardless of how (or whether) the TS service types the import.
    `styles.<class>` in any importing file is greyed out as unused.
    → `CssModuleUnusedClassInspection`
 
+### i18n translation keys (`react-i18next`)
+
+The project's translations live in a large nested locale JSON
+(`src/lang/translations/en.json`, thousands of dot-path keys) under a single
+`translation` namespace — too big/deep to type in TypeScript. These features give
+key support at the IDE level instead, all reading one cached index of the JSON
+(`com.intch.i18n`). They act on `t('...')`, `i18next.t(...)`, `i18n.t(...)`, and
+`<Trans i18nKey="...">`, only in files that import i18n, and skip dynamic
+template-literal keys (`` t(`a.${x}`) ``).
+
+7. **Translation-key completion.** Inside a key string, all valid dot-path keys
+   are offered (`common.action.copy`, `page.pwa_install.title`, …).
+   → `I18nKeyReference.getVariants` (the platform surfaces reference variants as
+   completion for JS string literals — no separate contributor needed).
+
+8. **"Unknown translation key" inspection.** A key string that isn't present in the
+   locale JSON is flagged with a warning. Stays silent if no key file is located
+   (so it never redlines the whole project).
+   → `I18nUnknownKeyInspection`
+
+9. **Go-to-definition + Find Usages on a key.** Cmd/Ctrl+click a key to jump to its
+   entry in `en.json`; Find Usages from the JSON side works too (one reference,
+   both directions).
+   → `I18nKeyReference` / `I18nKeyReferenceContributor`
+
+The key-source JSON is located **from the i18n config**: the file that imports
+`initReactI18next` is found, and its `import en from '…'` is followed to the JSON.
+If detection fails, it falls back to convention (`*/translations/en.json`).
+→ `I18nConfig`, `I18nKeyIndex`, `I18nCallSites`, `I18nKeys`
+
 ---
 
 ## Architecture / where each thing lives
@@ -192,7 +222,7 @@ read logs:
 ## Tests
 
 The suite runs the real IntelliJ engine against the locally-installed WebStorm SDK
-on in-memory `BasePlatformTestCase` fixtures (no mocks). 30 tests, all green.
+on in-memory `BasePlatformTestCase` fixtures (no mocks). 69 tests, all green.
 
 ```bash
 JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
@@ -238,6 +268,18 @@ and helpers return empty. Verify in a throwaway test with
 | `CssModuleAutoImportCompletionTest` | completion auto-import: module-named entry, rename + insert import, no dup |
 | `CssModuleImportBindingTest` | `importBindingFor` binding-name derivation |
 | `CssModuleFindUsagesTest` | scoped Find Usages (only files importing that exact module) |
+| `I18nConfigLogicTest` | pure: `enImportPath` (follow the `en` import in the i18n config) |
+| `I18nKeySourceTest` | locating the key-source JSON (config-driven + convention fallback) |
+| `I18nKeysTest` | flatten JSON → leaf dot-path keys; resolve key → `JsonProperty` |
+| `I18nKeyIndexTest` | cached index: keys + resolve, empty when no source |
+| `I18nCallSitesTest` | the call-site matcher (`t`/`i18next.t`/`i18n.t`/`<Trans i18nKey>`, guards) |
+| `I18nUnknownKeyInspectionTest` | unknown-key warning; quiet on known/dynamic; `<Trans>` |
+| `I18nKeyReferenceTest` | go-to-definition (key → JSON) + key completion via the reference |
+
+> **JSX PSI note:** in a `.tsx`, a `<Trans/>` element is itself a `JSLiteralExpression`
+> subtype (`JSXXmlLiteralExpression`), and the `i18nKey` value is an `XmlAttributeValue`
+> (`com.intellij.lang.javascript.psi.e4x`), **not** a `JSLiteralExpression`. The matcher
+> handles both element types; `keyOf` returns null for the JSX element itself.
 
 ### Partial gap: the Alt+Enter quick-fix path is not fixture-testable
 The completion-driven auto-import (entry + rename + import insertion) IS fully

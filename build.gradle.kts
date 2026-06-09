@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.intch"
-version = "1.0.19"
+version = "1.1.0"
 
 repositories {
     mavenCentral()
