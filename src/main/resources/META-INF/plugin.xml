@@ -1,14 +1,21 @@
 <idea-plugin>
     <id>com.intch.css-modules-scoped-usages</id>
-    <name>CSS Modules Scoped Usages</name>
+    <name>WebDX</name>
     <vendor>intch</vendor>
 
     <description><![CDATA[
-        When you Find Usages (or Cmd+Click) a class selector inside a
-        <code>*.module.scss</code> / <code>*.module.css</code> / <code>*.module.less</code>
-        file, the search is restricted to only the JS/TS files that actually
-        <em>import that specific module</em> — instead of matching every
-        identically-named class reference across the whole project.
+        Developer-experience helpers for a React/TypeScript project, all resolved
+        from source files so they work even when the TypeScript language service
+        does not (e.g. on the TypeScript-Go / tsgo engine).
+        <ul>
+          <li><b>CSS Modules</b>: scoped Find Usages on a class, sibling-module
+              auto-import, <code>styles.</code> class-name completion, and
+              unknown/unused-class inspections.</li>
+          <li><b>i18n (react-i18next)</b>: translation-key completion, an
+              unknown-key inspection, go-to-definition and scoped Find Usages on a
+              key, plus interpolation-variable completion, checks, and
+              go-to-placeholder for <code>t('key', { … })</code>.</li>
+        </ul>
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>

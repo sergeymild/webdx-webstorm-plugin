@@ -1,10 +1,20 @@
-# CSS Modules Scoped Usages (WebStorm / IntelliJ plugin)
+# WebDX (WebStorm / IntelliJ plugin)
 
-A WebStorm plugin that makes CSS-module (`*.module.scss|css|less|sass`) ergonomics
-work the way you'd expect in a React/TypeScript project — **independently of the
-TypeScript language service** (important: this project runs on the experimental
+Developer-experience helpers for a React/TypeScript project, all resolved from the
+actual source files on disk so they keep working **independently of the TypeScript
+language service** — important here because this project runs on the experimental
 **TypeScript-Go (tsgo)** engine, which does not load TS service plugins like
-`typescript-plugin-css-modules`).
+`typescript-plugin-css-modules`.
+
+Two feature areas:
+- **CSS Modules** — scoped Find Usages, sibling-module auto-import, `styles.`
+  class-name completion, unknown/unused-class inspections.
+- **i18n (`react-i18next`)** — translation-key completion, unknown-key inspection,
+  go-to-definition + scoped Find Usages on a key, and interpolation tooling
+  (option-object completion, checks, and go-to-placeholder) for `t('key', { … })`.
+
+The plugin id stays `com.intch.css-modules-scoped-usages` (kept for update
+continuity); only the display name is **WebDX**.
 
 Built and verified against **WebStorm 2026.1 (build 261)**.
 

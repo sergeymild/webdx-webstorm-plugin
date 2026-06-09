@@ -55,7 +55,7 @@ tasks.test {
 intellijPlatform {
     pluginConfiguration {
         id = "com.intch.css-modules-scoped-usages"
-        name = "CSS Modules Scoped Usages"
+        name = "WebDX"
         version = project.version.toString()
 
         ideaVersion {
@@ -74,5 +74,14 @@ tasks {
     // searchable options fails on the bundled JBR — skip it.
     buildSearchableOptions {
         enabled = false
+    }
+
+    // Keep only the zip just built — wipe older versioned archives first.
+    buildPlugin {
+        doFirst {
+            delete(
+                fileTree(layout.buildDirectory.dir("distributions")) { include("*.zip") },
+            )
+        }
     }
 }

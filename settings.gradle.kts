@@ -1,1 +1,1 @@
-rootProject.name = "css-modules-scoped-usages"
+rootProject.name = "webdx"
