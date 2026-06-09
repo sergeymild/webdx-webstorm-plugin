@@ -22,9 +22,34 @@ dependencies {
         local("/Applications/WebStorm.app")
 
         // PSI for CSS/SCSS and for JS/TS imports lives in these bundled plugins.
-        bundledPlugins("com.intellij.css", "JavaScript")
+        // - com.intellij.css          : plain CSS
+        // - org.jetbrains.plugins.sass: SCSS / SASS file types & PSI
+        // - org.jetbrains.plugins.less: LESS file type & PSI
+        // - JavaScript                : JS/TS/JSX/TSX PSI and import resolution
+        // - com.intellij.modules.json : required dependency of the JavaScript plugin
+        bundledPlugins(
+            "com.intellij.css",
+            "org.jetbrains.plugins.sass",
+            "org.jetbrains.plugins.less",
+            "JavaScript",
+            "com.intellij.modules.json",
+        )
 
         pluginVerifier()
+
+        // Platform test fixtures (BasePlatformTestCase, CodeInsightTestFixture, …).
+        testFramework(TestFrameworkType.Platform)
+    }
+
+    testImplementation("junit:junit:4.13.2")
+}
+
+tasks.test {
+    // Light fixtures need the headless UI bits available.
+    systemProperty("java.awt.headless", "true")
+    testLogging {
+        showStandardStreams = true
+        events("passed", "failed", "skipped")
     }
 }
 

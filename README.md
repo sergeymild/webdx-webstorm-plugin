@@ -178,6 +178,62 @@ read logs:
 
 ---
 
+## Tests
+
+The suite runs the real IntelliJ engine against the locally-installed WebStorm SDK
+on in-memory `BasePlatformTestCase` fixtures (no mocks). 30 tests, all green.
+
+```bash
+JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
+  ./gradlew test
+```
+
+Report (HTML): `build/reports/tests/test/index.html`.
+
+### Test wiring in `build.gradle.kts`
+```kotlin
+intellijPlatform {
+    // … local("/Applications/WebStorm.app")
+    testFramework(TestFrameworkType.Platform)
+}
+testImplementation("junit:junit:4.13.2")
+```
+
+### Gotcha: tests need MORE bundled plugins than the plugin `<depends>` on
+The shipped `plugin.xml` only `<depends>` on `com.intellij.css` + `JavaScript`
+(everything else is present in a real WebStorm). The **test runtime is a bare IDE**
+that loads only what `bundledPlugins(...)` declares — so the test build must add:
+
+| Bundled plugin id | Why it's needed in tests |
+|---|---|
+| `com.intellij.css` | plain CSS |
+| `org.jetbrains.plugins.sass` | SCSS / SASS — **separate plugin**, not part of `com.intellij.css` |
+| `org.jetbrains.plugins.less` | LESS |
+| `JavaScript` | JS/TS/JSX/TSX PSI + import resolution |
+| `com.intellij.modules.json` | **required dependency of `JavaScript`** — without it the JS plugin silently won't load (`module dependency 'intellij.json.backend' … missing`) |
+
+Symptoms when one is missing: `.scss`/`.tsx` files parse as `PLAIN_TEXT`/`UNKNOWN`,
+and helpers return empty. Verify in a throwaway test with
+`PluginManagerCore.loadedPlugins` and
+`FileTypeManager.getInstance().getFileTypeByExtension("scss")` → must be `SCSS`.
+
+### What's covered
+| Test class | Target |
+|---|---|
+| `CssModulesLogicTest` | pure filename predicates (`isModuleFileName`, `isJsLikeFileName`) |
+| `CssModulesPsiTest` | `CssModules` PSI helpers (collect/resolve/bindings/importers/used) |
+| `CssModuleInspectionTest` | unused-class (CSS) + unknown-class (JS/TS) via real highlighting |
+| `CssModuleCompletionTest` | `styles.` completion + LSP-garbage suppression |
+| `CssModuleFindUsagesTest` | scoped Find Usages (only files importing that exact module) |
+
+### Known gap: auto-import is not fixture-testable
+Features 2 + 3 (`CssModuleImportCandidatesFactory` / filter) can't be tested on the
+light fixture: it doesn't run the TS service, so `styles` is never flagged
+unresolved and the import quick-fix machinery never triggers (probed — no
+highlights, no quick-fixes). Verify those manually in the running IDE.
+
+---
+
 ## Possible next steps
 - Strip the diagnostic markers (`CssScopedStartup.kt`, the `/tmp` writes, the
   `[CSS-SCOPED]` logs) for a clean release build.
