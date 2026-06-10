@@ -15,6 +15,16 @@ Build a distributable zip: `./gradlew buildPlugin` → `build/distributions/webd
 `BasePlatformTestCase`). All features resolve from source files, so they work on the
 tsgo engine where the TS language service doesn't load plugins.
 
+## 1.4.3 — 2026-06-10
+- **Go-to-declaration on `styles.<class>` targets the effective declaration.** A new
+  `CssModuleGotoDeclarationHandler` resolves the member to a single CSS class: when
+  the importing module redefines an `@import`-ed class, navigation lands on the
+  **local override** (the cascade winner), not the imported source; otherwise on the
+  declaring file in the chain. Resolved from source PSI via `collectClassOrigins`.
+  Caveat: the platform merges go-to targets from all providers, so if the TS service
+  also resolves `styles.<class>` its targets still appear alongside this one.
+- 124 tests.
+
 ## 1.4.2 — 2026-06-10
 - **`styles.` completion shows each class's real source file.** The type-text on the
   right of every completion entry is now the file that actually declares the class —

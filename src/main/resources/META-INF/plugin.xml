@@ -26,6 +26,8 @@
         <findUsagesHandlerFactory
             order="first"
             implementation="com.intch.cssmodules.CssModuleFindUsagesHandlerFactory"/>
+        <gotoDeclarationHandler
+            implementation="com.intch.cssmodules.CssModuleGotoDeclarationHandler"/>
         <postStartupActivity implementation="com.intch.cssmodules.CssScopedStartup"/>
 
         <completion.contributor language="TypeScript JSX" id="cssModStylesTsx" order="first"

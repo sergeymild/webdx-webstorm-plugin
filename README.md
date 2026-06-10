@@ -271,7 +271,7 @@ read logs:
 ## Tests
 
 The suite runs the real IntelliJ engine against the locally-installed WebStorm SDK
-on in-memory `BasePlatformTestCase` fixtures (no mocks). 120 tests, all green.
+on in-memory `BasePlatformTestCase` fixtures (no mocks). 124 tests, all green.
 
 ```bash
 JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
@@ -358,5 +358,7 @@ triggers (probed — no highlights, no quick-fixes). Verify it manually in the I
 - Handle bracket access `styles['kebab-case']` for the inspections.
 - Suppress the "unused" warning when a module is accessed dynamically
   (`styles[variable]`) in an importer.
-- Go-to-declaration / rename for `styles.foo` ↔ the CSS class.
+- Rename for `styles.foo` ↔ the CSS class. (Go-to-declaration is implemented in
+  `CssModuleGotoDeclarationHandler` — it targets the effective/local-override
+  declaration; note the platform still merges in the TS service's own targets.)
 ```
