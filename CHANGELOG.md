@@ -15,6 +15,15 @@ Build a distributable zip: `./gradlew buildPlugin` → `build/distributions/webd
 `BasePlatformTestCase`). All features resolve from source files, so they work on the
 tsgo engine where the TS language service doesn't load plugins.
 
+## 1.4.8 — 2026-06-10
+- **Fix: `styles.<class>` go-to resolves against `originalFile`.** The provider IS
+  invoked in the IDE (logs confirm) but `resolveTarget` returned null on the real
+  file: during navigation the platform hands a non-physical PSI **copy** whose
+  `virtualFile` is null, so `resolveModuleForBinding` couldn't find the import dir.
+  Now it resolves via `containingFile.originalFile`. Reproduced the real shape (JSX
+  `className={styles.nextButton}` + relative import + `@/`-alias `@import` chain +
+  local override) in `CssModuleNavRealShapeTest`. 129 tests.
+
 ## 1.4.7 — 2026-06-10
 - **Step-by-step `[CSS-NAV]` bail logging in the resolver** (temporary). Logs confirm
   `DirectNavigationProvider`/`GotoDeclarationHandler` ARE invoked for `styles.nextButton`

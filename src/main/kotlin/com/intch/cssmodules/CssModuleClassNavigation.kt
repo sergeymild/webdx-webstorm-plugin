@@ -19,7 +19,11 @@ internal object CssModuleClassNavigation {
     /** [element] is the leaf under the caret. Returns the target CssClass or null. */
     fun resolveTarget(element: PsiElement): PsiElement? {
         if (element.firstChild != null) return null // leaves only
-        val file = element.containingFile ?: return null
+        val rawFile = element.containingFile ?: return null
+        // During navigation/resolve the platform may hand us a non-physical PSI COPY
+        // whose virtualFile is null; originalFile gives the physical file we can resolve
+        // imports against (it has a virtualFile + the same text).
+        val file = rawFile.originalFile
         if (!CssModules.isJsLikeFileName(file.name)) return null
 
         val name = element.text
@@ -41,7 +45,8 @@ internal object CssModuleClassNavigation {
         if (moduleFile == null) {
             log.warn(
                 "[CSS-NAV] bail: resolveModuleForBinding('$binding') == null in ${file.name} " +
-                    "(name='$name'). import line: '${importLineFor(file.text, binding)}'",
+                    "(name='$name') vf=${file.virtualFile?.name} rawVf=${rawFile.virtualFile?.name} " +
+                    "import='${importLineFor(file.text, binding)}'",
             )
             return null
         }
