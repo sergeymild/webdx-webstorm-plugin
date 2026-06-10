@@ -130,7 +130,7 @@ internal object CssModules {
             if (!isModuleFileName(path)) return@forEach
             val vf = resolveRelative(dir, path) ?: return@forEach
             val psi = psiManager.findFile(vf) ?: return@forEach
-            result[binding] = collectClassNames(psi).toSet()
+            result[binding] = collectAllClassNames(psi).toSet()
         }
         return result
     }

@@ -52,4 +52,22 @@ class CssModuleCompletionTest : BasePlatformTestCase() {
             suggestions.contains("alpha") || suggestions.contains("beta"),
         )
     }
+
+    fun testCompletesImportedClassesFromAtImport() {
+        myFixture.addFileToProject("common.module.scss", ".nextButton { } .note { }")
+        myFixture.addFileToProject(
+            "Comp.module.scss",
+            "@import './common.module.scss';\n.local { }",
+        )
+        myFixture.configureByText(
+            "Comp.tsx",
+            "import styles from './Comp.module.scss';\nfunction f() { return styles.<caret>; }",
+        )
+        myFixture.completeBasic()
+        val suggestions = myFixture.lookupElementStrings ?: emptyList()
+        assertTrue(
+            "expected own + imported classes, got: $suggestions",
+            suggestions.containsAll(listOf("local", "nextButton", "note")),
+        )
+    }
 }

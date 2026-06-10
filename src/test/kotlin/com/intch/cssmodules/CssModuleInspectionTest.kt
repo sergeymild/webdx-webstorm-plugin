@@ -100,4 +100,33 @@ class CssModuleInspectionTest : BasePlatformTestCase() {
             descriptions.any { it.contains("Unknown CSS module class") },
         )
     }
+
+    fun testImportedClassIsNotFlaggedAsUnknown() {
+        myFixture.addFileToProject("src/common.module.scss", ".nextButton { color: red; }")
+        myFixture.addFileToProject(
+            "src/Comp.module.scss",
+            "@import './common.module.scss';\n.local { color: blue; }",
+        )
+        val tsx = myFixture.addFileToProject(
+            "src/Comp.tsx",
+            """
+            import styles from './Comp.module.scss';
+            const a = styles.nextButton;
+            const b = styles.local;
+            const c = styles.doesNotExist;
+            """.trimIndent(),
+        )
+        myFixture.configureFromExistingVirtualFile(tsx.virtualFile)
+        myFixture.enableInspections(CssModuleUnknownClassInspection())
+
+        val descriptions = myFixture.doHighlighting().mapNotNull { it.description }
+        assertFalse(
+            "imported class 'nextButton' must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("'nextButton'") },
+        )
+        assertTrue(
+            "expected 'doesNotExist' still flagged, got: $descriptions",
+            descriptions.any { it.contains("Unknown CSS module class 'doesNotExist'") },
+        )
+    }
 }

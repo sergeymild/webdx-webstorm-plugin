@@ -55,7 +55,7 @@ class CssModuleStylesCompletion : CompletionContributor() {
         val binding = qualifier?.text
         val moduleFile = if (binding != null && binding.isNotEmpty() && binding.first().isJavaIdentifierStart())
             CssModules.resolveModuleForBinding(file, binding) else null
-        val classes = moduleFile?.let { CssModules.collectClassNames(it) } ?: emptyList()
+        val classes = moduleFile?.let { CssModules.collectAllClassNames(it) } ?: emptyList()
         if (moduleFile == null || classes.isEmpty()) return
 
         for (name in classes) {
