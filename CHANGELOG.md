@@ -15,6 +15,16 @@ Build a distributable zip: `./gradlew buildPlugin` → `build/distributions/webd
 `BasePlatformTestCase`). All features resolve from source files, so they work on the
 tsgo engine where the TS language service doesn't load plugins.
 
+## 1.4.9 — 2026-06-10
+- **Override the `GotoDeclaration` action for `styles.<class>`.** Logs proved the
+  TS-Go service bypasses BOTH `gotoDeclarationHandler` and `directNavigationProvider`
+  (0 invocations on click) and resolves the member to every same-named CSS
+  declaration. So we now override the `GotoDeclaration` action itself
+  (`overrides="true"`): if the caret is on a `styles.<class>` we can resolve to a
+  single effective declaration (local override wins), we navigate there and stop;
+  otherwise we delegate to the platform default. Wrapped in try/catch so it can never
+  break normal navigation. `[CSS-GOTOACTION]` diagnostic log kept for one round.
+
 ## 1.4.8 — 2026-06-10
 - **Fix: `styles.<class>` go-to resolves against `originalFile`.** The provider IS
   invoked in the IDE (logs confirm) but `resolveTarget` returned null on the real

@@ -183,4 +183,11 @@
         <listener class="com.intch.cssmodules.CssScopedAppListener"
                   topic="com.intellij.ide.AppLifecycleListener"/>
     </applicationListeners>
+
+    <actions>
+        <!-- Override Go to Declaration to intercept styles.<class> (TS-Go bypasses the
+             go-to extension points); delegates to default for everything else. -->
+        <action id="GotoDeclaration" overrides="true"
+                class="com.intch.cssmodules.CssModuleGotoDeclarationAction"/>
+    </actions>
 </idea-plugin>
