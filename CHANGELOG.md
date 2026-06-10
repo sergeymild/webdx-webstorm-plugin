@@ -15,6 +15,12 @@ Build a distributable zip: `./gradlew buildPlugin` → `build/distributions/webd
 `BasePlatformTestCase`). All features resolve from source files, so they work on the
 tsgo engine where the TS language service doesn't load plugins.
 
+## 1.5.1 — 2026-06-10
+- **Fix: override warning shown three times.** The inspection was registered for
+  SCSS/SASS/LESS/CSS separately, but those are dialects of CSS, so a `.scss` file
+  matched three registrations and fired the warning thrice. Registered once on
+  `language="CSS"` (covers all dialects exactly once).
+
 ## 1.5.0 — 2026-06-10
 - **New inspection: "overrides imported class".** A class in a `*.module.scss|css|sass|less`
   whose name is also declared in a module it (transitively) `@import`s is flagged with a

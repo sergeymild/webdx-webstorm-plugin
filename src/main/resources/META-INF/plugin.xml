@@ -72,23 +72,11 @@
             level="WARNING"
             implementationClass="com.intch.cssmodules.CssModuleUnusedClassInspection"/>
 
-        <localInspection language="SCSS"
-            shortName="CssModuleOverrideClass"
-            displayName="CSS module class overrides imported class"
-            groupName="CSS" enabledByDefault="true" level="WARNING"
-            implementationClass="com.intch.cssmodules.CssModuleOverrideClassInspection"/>
-        <localInspection language="SASS"
-            shortName="CssModuleOverrideClassSass"
-            displayName="CSS module class overrides imported class"
-            groupName="CSS" enabledByDefault="true" level="WARNING"
-            implementationClass="com.intch.cssmodules.CssModuleOverrideClassInspection"/>
-        <localInspection language="LESS"
-            shortName="CssModuleOverrideClassLess"
-            displayName="CSS module class overrides imported class"
-            groupName="CSS" enabledByDefault="true" level="WARNING"
-            implementationClass="com.intch.cssmodules.CssModuleOverrideClassInspection"/>
+        <!-- Register once on CSS only: SCSS/SASS/LESS are dialects of CSS, so a single
+             CSS registration matches each file exactly once. Registering per-dialect
+             made .scss match SCSS+SASS+CSS and fire the warning three times. -->
         <localInspection language="CSS"
-            shortName="CssModuleOverrideClassCss"
+            shortName="CssModuleOverrideClass"
             displayName="CSS module class overrides imported class"
             groupName="CSS" enabledByDefault="true" level="WARNING"
             implementationClass="com.intch.cssmodules.CssModuleOverrideClassInspection"/>
