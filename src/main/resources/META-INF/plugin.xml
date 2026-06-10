@@ -28,6 +28,8 @@
             implementation="com.intch.cssmodules.CssModuleFindUsagesHandlerFactory"/>
         <gotoDeclarationHandler
             implementation="com.intch.cssmodules.CssModuleGotoDeclarationHandler"/>
+        <lang.directNavigationProvider
+            implementation="com.intch.cssmodules.CssModuleDirectNavigationProvider"/>
         <postStartupActivity implementation="com.intch.cssmodules.CssScopedStartup"/>
 
         <completion.contributor language="TypeScript JSX" id="cssModStylesTsx" order="first"

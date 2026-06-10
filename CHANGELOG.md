@@ -15,6 +15,19 @@ Build a distributable zip: `./gradlew buildPlugin` → `build/distributions/webd
 `BasePlatformTestCase`). All features resolve from source files, so they work on the
 tsgo engine where the TS language service doesn't load plugins.
 
+## 1.4.5 — 2026-06-10
+- **Go-to via `DirectNavigationProvider` (the right hook).** Research showed the
+  modern Ctrl+Click / Ctrl+B path (`GotoDeclarationOrUsageHandler2`) consults
+  `com.intellij.lang.directNavigationProvider` FIRST and a non-null result
+  short-circuits the platform's Symbol navigation — which is what the TS-Go service
+  uses to offer every same-named CSS declaration. So `styles.<class>` now navigates
+  to the single effective declaration (local override, else `@import` source). The
+  legacy `gotoDeclarationHandler` was never on this path (0 invocations in idea.log),
+  which is why 1.4.3 had no effect. Shared resolver: `CssModuleClassNavigation`.
+  `resolveModuleForBinding` is now alias-aware (`@/…` imports) via `resolveImportPath`.
+  Keeps `[CSS-DIRECTNAV]`/`[CSS-GOTO]` diagnostic logs for one more verification round.
+- 127 tests.
+
 ## 1.4.4 — 2026-06-10
 - **Diagnostic logging in the go-to-declaration handler** (temporary). Every
   invocation on a JS-like file logs `[CSS-GOTO]` lines to idea.log showing whether

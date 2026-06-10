@@ -159,7 +159,8 @@ internal object CssModules {
         val regex = Regex("""import\s+${Regex.escape(binding)}\s+from\s+['"]([^'"]+)['"]""")
         val path = regex.find(jsFile.text)?.groupValues?.get(1) ?: return null
         if (!isModuleFileName(path)) return null
-        val vf = resolveRelative(dir, path) ?: return null
+        // resolveImportPath handles both relative and `@/` tsconfig-alias imports.
+        val vf = resolveImportPath(dir, jsFile.project, path) ?: return null
         return PsiManager.getInstance(jsFile.project).findFile(vf)
     }
 
