@@ -50,4 +50,37 @@ class CssScssImportPsiTest : BasePlatformTestCase() {
         assertNull(CssModules.resolveImportPath(dir, project, "@/does/not/exist.module.scss"))
         assertNull(CssModules.resolveImportPath(dir, project, "./nope.module.scss"))
     }
+
+    // --- collectAllClassNames ---------------------------------------------
+
+    fun testCollectAllIncludesImportedClasses() {
+        myFixture.addFileToProject("src/common.module.scss", ".nextButton {} .note {}")
+        val mod = myFixture.addFileToProject(
+            "src/StepGraph.module.scss",
+            "@import \"./common.module.scss\";\n.container {}",
+        )
+        assertEquals(setOf("container", "nextButton", "note"), CssModules.collectAllClassNames(mod).toSet())
+    }
+
+    fun testCollectAllIsTransitive() {
+        myFixture.addFileToProject("src/c.module.scss", ".cc {}")
+        myFixture.addFileToProject("src/b.module.scss", "@import \"./c.module.scss\";\n.bb {}")
+        val a = myFixture.addFileToProject("src/a.module.scss", "@import \"./b.module.scss\";\n.aa {}")
+        assertEquals(setOf("aa", "bb", "cc"), CssModules.collectAllClassNames(a).toSet())
+    }
+
+    fun testCollectAllSurvivesCycles() {
+        myFixture.addFileToProject("src/a.module.scss", "@import \"./b.module.scss\";\n.aa {}")
+        val b = myFixture.addFileToProject("src/b.module.scss", "@import \"./a.module.scss\";\n.bb {}")
+        assertEquals(setOf("aa", "bb"), CssModules.collectAllClassNames(b).toSet())
+    }
+
+    fun testCollectAllIgnoresNonModuleImports() {
+        myFixture.addFileToProject("src/vars.scss", ".globalThing {}")
+        val mod = myFixture.addFileToProject(
+            "src/Comp.module.scss",
+            "@import \"./vars.scss\";\n.local {}",
+        )
+        assertEquals(setOf("local"), CssModules.collectAllClassNames(mod).toSet())
+    }
 }

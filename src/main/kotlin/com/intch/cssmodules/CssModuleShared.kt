@@ -11,6 +11,9 @@ import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.css.CssClass
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.searches.ReferencesSearch
+import com.intellij.psi.util.CachedValueProvider
+import com.intellij.psi.util.CachedValuesManager
+import com.intellij.psi.util.PsiModificationTracker
 import com.intellij.psi.util.PsiTreeUtil
 
 /** Minimal view of a tsconfig's path aliasing: optional baseUrl + `paths` mappings (first target only). */
@@ -72,6 +75,33 @@ internal object CssModules {
         PsiTreeUtil.collectElementsOfType(moduleFile, CssClass::class.java)
             .mapNotNull { it.name?.removePrefix(".")?.takeIf(String::isNotEmpty) }
             .distinct()
+
+    /** The CSS-module files directly imported by [scssFile] via @import/@use/@forward. */
+    fun directModuleImports(scssFile: PsiFile): List<PsiFile> {
+        val dir = scssFile.virtualFile?.parent ?: return emptyList()
+        val project = scssFile.project
+        val psiManager = PsiManager.getInstance(project)
+        return scssImportPaths(scssFile.text).mapNotNull { path ->
+            val vf = resolveImportPath(dir, project, path) ?: return@mapNotNull null
+            if (!isModuleFileName(vf.name)) return@mapNotNull null
+            psiManager.findFile(vf)
+        }
+    }
+
+    /** Own class names plus those of every transitively imported CSS module (cycle-safe). */
+    fun collectAllClassNames(moduleFile: PsiFile): List<String> =
+        CachedValuesManager.getCachedValue(moduleFile) {
+            val out = LinkedHashSet<String>()
+            collectAllInto(moduleFile, out, HashSet())
+            CachedValueProvider.Result.create(out.toList(), PsiModificationTracker.MODIFICATION_COUNT)
+        }
+
+    private fun collectAllInto(file: PsiFile, out: MutableSet<String>, visited: MutableSet<VirtualFile>) {
+        val vf = file.virtualFile ?: return
+        if (!visited.add(vf)) return
+        out.addAll(collectClassNames(file))
+        for (imported in directModuleImports(file)) collectAllInto(imported, out, visited)
+    }
 
     /**
      * Find a CSS module imported in [jsFile] under the local name [binding]
