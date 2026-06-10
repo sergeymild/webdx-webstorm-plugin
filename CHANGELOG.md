@@ -15,6 +15,16 @@ Build a distributable zip: `./gradlew buildPlugin` → `build/distributions/webd
 `BasePlatformTestCase`). All features resolve from source files, so they work on the
 tsgo engine where the TS language service doesn't load plugins.
 
+## 1.6.0 — 2026-06-10
+- **New Alt+Enter intention: add `@import` for a name-resolved SCSS symbol.** When a
+  `@include <mixin>`, a `@function` call, a `$variable`, or a `%placeholder` resolves
+  only by name (its defining file isn't imported), the intention offers to add
+  `@import '<path>';` for the file that defines it. The path uses the project's `@/`
+  tsconfig alias when one matches (e.g. `@/styles/mixins.scss`), else a relative path.
+  Backed by a cached project symbol index. (`CssModuleImportSymbolIntention`,
+  `CssModules.scssDefinedSymbols`/`scssSymbolIndex`/`importSpecifierFor`/`importsTarget`.)
+  139 tests.
+
 ## 1.5.1 — 2026-06-10
 - **Fix: override warning shown three times.** The inspection was registered for
   SCSS/SASS/LESS/CSS separately, but those are dialects of CSS, so a `.scss` file

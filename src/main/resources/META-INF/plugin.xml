@@ -28,6 +28,10 @@
             implementation="com.intch.cssmodules.CssModuleFindUsagesHandlerFactory"/>
         <gotoDeclarationHandler
             implementation="com.intch.cssmodules.CssModuleGotoDeclarationHandler"/>
+        <intentionAction>
+            <className>com.intch.cssmodules.CssModuleImportSymbolIntention</className>
+            <category>CSS</category>
+        </intentionAction>
         <lang.directNavigationProvider
             implementation="com.intch.cssmodules.CssModuleDirectNavigationProvider"/>
         <postStartupActivity implementation="com.intch.cssmodules.CssScopedStartup"/>

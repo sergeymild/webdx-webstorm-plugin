@@ -70,4 +70,24 @@ class CssScssImportLogicTest {
         assertEquals(null, cfg.baseUrl)
         assertEquals(emptyMap<String, String>(), cfg.paths)
     }
+
+    @Test
+    fun `extracts mixin function variable and placeholder definitions`() {
+        val scss = """
+            @mixin remove-scrollbar { overflow: hidden; }
+            @function rem(${'$'}px) { @return ${'$'}px; }
+            ${'$'}brand-color: #fff;
+            %card-base { padding: 4px; }
+            .local { color: red; }
+        """.trimIndent()
+        assertEquals(
+            setOf("remove-scrollbar", "rem", "brand-color", "card-base"),
+            CssModules.scssDefinedSymbols(scss),
+        )
+    }
+
+    @Test
+    fun `no symbols in plain rules`() {
+        assertEquals(emptyList<String>(), CssModules.scssDefinedSymbols(".a { color: red; }\n.b { }").toList())
+    }
 }

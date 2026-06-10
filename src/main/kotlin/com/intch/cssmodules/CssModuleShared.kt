@@ -131,6 +131,84 @@ internal object CssModules {
             CachedValueProvider.Result.create<Map<String, PsiFile>>(out, PsiModificationTracker.MODIFICATION_COUNT)
         }
 
+    // --- SCSS symbol definitions (mixins / functions / variables / placeholders) ---
+
+    private val SCSS_MIXIN = Regex("""@mixin\s+([\w-]+)""")
+    private val SCSS_FUNCTION = Regex("""@function\s+([\w-]+)""")
+    private val SCSS_VARIABLE = Regex("""(?m)^\s*\$([\w-]+)\s*:""")
+    private val SCSS_PLACEHOLDER = Regex("""%([\w-]+)\s*[{,]""")
+
+    /** Names defined in SCSS [text]: `@mixin`/`@function`/top-level `$var`/`%placeholder`. */
+    fun scssDefinedSymbols(text: String): Set<String> {
+        val out = LinkedHashSet<String>()
+        for (re in listOf(SCSS_MIXIN, SCSS_FUNCTION, SCSS_VARIABLE, SCSS_PLACEHOLDER)) {
+            re.findAll(text).forEach { out.add(it.groupValues[1]) }
+        }
+        return out
+    }
+
+    /**
+     * Project-wide index of SCSS symbol name -> the file that defines it (first wins).
+     * Covers `.scss`/`.sass` files. Cached on [project] + PSI modification count.
+     */
+    fun scssSymbolIndex(project: Project): Map<String, VirtualFile> =
+        CachedValuesManager.getManager(project).getCachedValue(project) {
+            val scope = GlobalSearchScope.projectScope(project)
+            val index = HashMap<String, VirtualFile>()
+            for (ext in listOf("scss", "sass")) {
+                for (vf in FilenameIndex.getAllFilesByExt(project, ext, scope)) {
+                    val text = runCatching { VfsUtilCore.loadText(vf) }.getOrNull() ?: continue
+                    for (name in scssDefinedSymbols(text)) index.putIfAbsent(name, vf)
+                }
+            }
+            CachedValueProvider.Result.create<Map<String, VirtualFile>>(index, PsiModificationTracker.MODIFICATION_COUNT)
+        }
+
+    /** True if [scssFile] already `@import`/`@use`/`@forward`s [target]. */
+    fun importsTarget(scssFile: PsiFile, target: VirtualFile): Boolean {
+        val dir = scssFile.virtualFile?.parent ?: return false
+        val project = scssFile.project
+        return scssImportPaths(scssFile.text).any { resolveImportPath(dir, project, it) == target }
+    }
+
+    /**
+     * Build an import specifier for [targetFile] using a tsconfig `@/`-style alias when
+     * one matches (e.g. `@/styles/mixins.scss`); falls back to a relative path from
+     * [fromDir]. Returns null only if nothing can be built.
+     */
+    fun importSpecifierFor(project: Project, fromDir: VirtualFile, targetFile: VirtualFile): String? {
+        aliasSpecifierFor(fromDir, targetFile)?.let { return it }
+        return relativeSpecifier(fromDir, targetFile)
+    }
+
+    private fun aliasSpecifierFor(fromDir: VirtualFile, targetFile: VirtualFile): String? {
+        val tsconfig = findTsconfig(fromDir) ?: return null
+        val tsDir = tsconfig.parent ?: return null
+        val text = runCatching { VfsUtilCore.loadText(tsconfig) }.getOrNull() ?: return null
+        val cfg = tsconfigAliases(text)
+        val baseDir = cfg.baseUrl?.let { resolveRelative(tsDir, it) } ?: tsDir
+        for ((key, template) in cfg.paths) {
+            if (!key.endsWith("/*") || !template.contains("*")) continue
+            val templateDirPath = template.substringBefore("*")
+            val templateBase = resolveRelative(baseDir, templateDirPath) ?: continue
+            val remainder = relativePathBetween(templateBase, targetFile) ?: continue
+            return key.dropLast(1) + remainder // "@/*" -> "@/" + remainder
+        }
+        return null
+    }
+
+    private fun relativeSpecifier(fromDir: VirtualFile, targetFile: VirtualFile): String? {
+        val rel = relativePathBetween(fromDir, targetFile)
+        if (rel != null) return "./$rel"
+        // target is not under fromDir: climb up
+        val up = VfsUtilCore.findRelativePath(fromDir, targetFile, '/') ?: return null
+        return if (up.startsWith(".")) up else "./$up"
+    }
+
+    /** Path of [target] relative to [base] dir, or null if [target] is not under [base]. */
+    private fun relativePathBetween(base: VirtualFile, target: VirtualFile): String? =
+        VfsUtilCore.getRelativePath(target, base, '/')
+
     private val CSS_EXTS = listOf("scss", "sass", "less", "css")
 
     /** Forward graph over all CSS-module files: file -> the CSS-module files it directly imports. */

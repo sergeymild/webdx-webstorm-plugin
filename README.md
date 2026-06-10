@@ -271,7 +271,7 @@ read logs:
 ## Tests
 
 The suite runs the real IntelliJ engine against the locally-installed WebStorm SDK
-on in-memory `BasePlatformTestCase` fixtures (no mocks). 133 tests, all green.
+on in-memory `BasePlatformTestCase` fixtures (no mocks). 139 tests, all green.
 
 ```bash
 JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
