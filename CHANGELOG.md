@@ -15,6 +15,13 @@ Build a distributable zip: `./gradlew buildPlugin` → `build/distributions/webd
 `BasePlatformTestCase`). All features resolve from source files, so they work on the
 tsgo engine where the TS language service doesn't load plugins.
 
+## 1.4.6 — 2026-06-10
+- **Verbose `[CSS-DIRECTNAV]` entry logging** (temporary) — logs the actual element
+  shape (class, leaf?, text, prev leaf, parent) the platform passes to
+  `DirectNavigationProvider.getNavigationElement` for `styles.nextButton`, to find
+  out whether the provider is invoked at all and why it isn't winning over the
+  TS-Go service's two-target resolution.
+
 ## 1.4.5 — 2026-06-10
 - **Go-to via `DirectNavigationProvider` (the right hook).** Research showed the
   modern Ctrl+Click / Ctrl+B path (`GotoDeclarationOrUsageHandler2`) consults

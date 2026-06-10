@@ -17,15 +17,25 @@ class CssModuleDirectNavigationProvider : DirectNavigationProvider {
     private val log = logger<CssModuleDirectNavigationProvider>()
 
     override fun getNavigationElement(element: PsiElement): PsiElement? {
+        // DIAGNOSTIC (temporary): log every time this provider is consulted on an element
+        // whose text mentions a class we care about, so we can see the real element SHAPE
+        // the platform passes here. Grep idea.log for "[CSS-DIRECTNAV]".
+        val file = element.containingFile
+        if (file != null && CssModules.isJsLikeFileName(file.name)) {
+            val txt = runCatching { element.text }.getOrNull()
+            if (txt != null && txt.length <= 60 && txt.contains("nextButton")) {
+                val prev = runCatching { CssModules.prevMeaningfulLeaf(element)?.text }.getOrNull()
+                log.warn(
+                    "[CSS-DIRECTNAV] entry: cls=${element.javaClass.simpleName} " +
+                        "leaf=${element.firstChild == null} text='${txt.take(40)}' prev='$prev' " +
+                        "parent=${element.parent?.javaClass?.simpleName}",
+                )
+            }
+        }
+
         val target = CssModuleClassNavigation.resolveTarget(element)
-        // DIAGNOSTIC (temporary): log when this fires on a member-access position.
-        // Grep idea.log for "[CSS-DIRECTNAV]". getNavigationElement runs on hover too,
-        // so only log the member-access shape to keep noise down.
-        if (target != null || CssModuleClassNavigation.isMemberAccessLeaf(element)) {
-            log.warn(
-                "[CSS-DIRECTNAV] el='${runCatching { element.text?.take(40) }.getOrNull()}' " +
-                    "-> ${target?.containingFile?.name ?: "null"}",
-            )
+        if (target != null) {
+            log.warn("[CSS-DIRECTNAV] RESOLVED -> ${target.containingFile?.name}")
         }
         return target
     }
