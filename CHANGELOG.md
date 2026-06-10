@@ -24,7 +24,13 @@ tsgo engine where the TS language service doesn't load plugins.
   flagged. (`CssModules.scssImportPaths`/`tsconfigAliases`/`resolveImportPath`/
   `collectAllClassNames`/`moduleImportGraph`/`modulesTransitivelyImporting`, widened
   `collectUsedClassNames`.)
-- 118 tests.
+- **Scoped Find Usages follows the `@import` chain.** Find Usages / Cmd+Click on a
+  class in a shared module (e.g. `common.module.scss`, consumed via Sass `@import`)
+  now lists the real `styles.<class>` references in the JS/TS files that import it
+  through the chain — instead of matching unrelated same-named `.class {`
+  declarations and `@extend`s. (`CssModuleFindUsagesHandlerFactory` reuses
+  `modulesTransitivelyImporting` + `findImporters`, JS-only with a binding qualifier.)
+- 119 tests.
 
 ## 1.3.0 — 2026-06-09
 - **i18n go-to-placeholder.** Cmd+Click an option-object key (`t('k', { price: … })`)
