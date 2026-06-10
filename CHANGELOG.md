@@ -15,6 +15,13 @@ Build a distributable zip: `./gradlew buildPlugin` → `build/distributions/webd
 `BasePlatformTestCase`). All features resolve from source files, so they work on the
 tsgo engine where the TS language service doesn't load plugins.
 
+## 1.4.4 — 2026-06-10
+- **Diagnostic logging in the go-to-declaration handler** (temporary). Every
+  invocation on a JS-like file logs `[CSS-GOTO]` lines to idea.log showing whether
+  the handler ran, where it bailed (e.g. `resolveModuleForBinding` returns null for
+  a non-relative `@/` alias import), or which target it resolved. To investigate why
+  `styles.<class>` navigation isn't behaving as expected. Remove once diagnosed.
+
 ## 1.4.3 — 2026-06-10
 - **Go-to-declaration on `styles.<class>` targets the effective declaration.** A new
   `CssModuleGotoDeclarationHandler` resolves the member to a single CSS class: when
