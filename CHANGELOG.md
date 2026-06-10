@@ -15,6 +15,12 @@ Build a distributable zip: `./gradlew buildPlugin` → `build/distributions/webd
 `BasePlatformTestCase`). All features resolve from source files, so they work on the
 tsgo engine where the TS language service doesn't load plugins.
 
+## 1.4.7 — 2026-06-10
+- **Step-by-step `[CSS-NAV]` bail logging in the resolver** (temporary). Logs confirm
+  `DirectNavigationProvider`/`GotoDeclarationHandler` ARE invoked for `styles.nextButton`
+  but `resolveTarget` returns null in the real file; this pinpoints which step fails
+  (qualifier / `resolveModuleForBinding` / `collectClassOrigins` / CssClass lookup).
+
 ## 1.4.6 — 2026-06-10
 - **Verbose `[CSS-DIRECTNAV]` entry logging** (temporary) — logs the actual element
   shape (class, leaf?, text, prev leaf, parent) the platform passes to

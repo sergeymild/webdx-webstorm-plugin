@@ -1,5 +1,6 @@
 package com.intch.cssmodules
 
+import com.intellij.openapi.diagnostic.logger
 import com.intellij.psi.PsiElement
 import com.intellij.psi.css.CssClass
 import com.intellij.psi.util.PsiTreeUtil
@@ -10,12 +11,10 @@ import com.intellij.psi.util.PsiTreeUtil
  * local declaration (the Sass-cascade winner) is returned; otherwise the file in
  * the import chain that declares it. Resolved from source PSI only (no TS service),
  * via [CssModules.collectClassOrigins] (own file wins on a name clash).
- *
- * Used by both [CssModuleDirectNavigationProvider] (the Ctrl+Click / modern path,
- * which short-circuits the TS service's symbol navigation) and
- * [CssModuleGotoDeclarationHandler] (the legacy Go to Declaration path).
  */
 internal object CssModuleClassNavigation {
+
+    private val log = logger<CssModuleClassNavigation>()
 
     /** [element] is the leaf under the caret. Returns the target CssClass or null. */
     fun resolveTarget(element: PsiElement): PsiElement? {
@@ -30,14 +29,47 @@ internal object CssModuleClassNavigation {
         if (dot.text != ".") return null
         val qualifier = CssModules.prevMeaningfulLeaf(dot) ?: return null
         val binding = qualifier.text
-        if (binding.isEmpty() || !binding.first().isJavaIdentifierStart()) return null
 
-        val moduleFile = CssModules.resolveModuleForBinding(file, binding) ?: return null
-        val declaringFile = CssModules.collectClassOrigins(moduleFile)[name] ?: return null
+        // DIAGNOSTIC (temporary): from here we know it's a `<binding>.<name>` access.
+        // Log each bail point so we can see exactly why resolution fails. Grep "[CSS-NAV]".
+        if (binding.isEmpty() || !binding.first().isJavaIdentifierStart()) {
+            log.warn("[CSS-NAV] bail: qualifier '$binding' not identifier (name='$name')")
+            return null
+        }
 
-        return PsiTreeUtil.collectElementsOfType(declaringFile, CssClass::class.java)
+        val moduleFile = CssModules.resolveModuleForBinding(file, binding)
+        if (moduleFile == null) {
+            log.warn(
+                "[CSS-NAV] bail: resolveModuleForBinding('$binding') == null in ${file.name} " +
+                    "(name='$name'). import line: '${importLineFor(file.text, binding)}'",
+            )
+            return null
+        }
+
+        val origins = CssModules.collectClassOrigins(moduleFile)
+        val declaringFile = origins[name]
+        if (declaringFile == null) {
+            log.warn(
+                "[CSS-NAV] bail: '$name' not in collectClassOrigins(${moduleFile.name}); " +
+                    "${origins.size} classes, sample=${origins.keys.take(12)}",
+            )
+            return null
+        }
+
+        val cssClass = PsiTreeUtil.collectElementsOfType(declaringFile, CssClass::class.java)
             .firstOrNull { it.name?.removePrefix(".") == name }
+        if (cssClass == null) {
+            log.warn("[CSS-NAV] bail: no CssClass PSI for '$name' in ${declaringFile.name}")
+            return null
+        }
+
+        log.warn("[CSS-NAV] OK: '$binding.$name' -> ${declaringFile.name} (module=${moduleFile.name})")
+        return cssClass
     }
+
+    private fun importLineFor(text: String, binding: String): String =
+        Regex("""import\s+${Regex.escape(binding)}\s+from\s+['"][^'"]+['"]""")
+            .find(text)?.value ?: "<no match>"
 
     /** True when [element] is a `<identifier> . <identifier>` member-access leaf (cheap shape check for logging). */
     fun isMemberAccessLeaf(element: PsiElement): Boolean {
