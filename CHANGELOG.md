@@ -6,7 +6,11 @@ another machine. Display name **WebDX**; plugin id stays
 locally-installed WebStorm (`local("/Applications/WebStorm.app")`), Kotlin 2.3.0,
 JDK 21, IntelliJ Platform Gradle Plugin 2.6.0.
 
-Design spec: [`docs/superpowers/specs/2026-06-09-i18n-key-support-design.md`](docs/superpowers/specs/2026-06-09-i18n-key-support-design.md).
+Design specs: [`2026-06-09-i18n-key-support-design.md`](docs/superpowers/specs/2026-06-09-i18n-key-support-design.md),
+[`2026-06-10-scss-import-inlined-classes-design.md`](docs/superpowers/specs/2026-06-10-scss-import-inlined-classes-design.md)
+(+ plan `docs/superpowers/plans/2026-06-10-scss-import-inlined-classes.md`). Later CSS-module
+work (override inspection, `styles.<class>` go-to, the `@import` intention) was iterated
+directly and is recorded in the version entries below.
 Feature reference + build/test setup (incl. the extra bundled plugins the test
 runtime needs): see [`README.md`](README.md).
 

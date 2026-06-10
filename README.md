@@ -8,7 +8,10 @@ language service** — important here because this project runs on the experimen
 
 Two feature areas:
 - **CSS Modules** — scoped Find Usages, sibling-module auto-import, `styles.`
-  class-name completion, unknown/unused-class inspections.
+  class-name completion, unknown/unused-class inspections, full Sass `@import`-chain
+  awareness (completion/inspections/Find Usages see inlined classes), an
+  overrides-imported-class warning, go-to the effective `styles.<class>` declaration,
+  and an Alt+Enter `@import` for name-resolved SCSS mixins/functions/vars/placeholders.
 - **i18n (`react-i18next`)** — translation-key completion, unknown-key inspection,
   go-to-definition + scoped Find Usages on a key, and interpolation tooling
   (option-object completion, checks, and go-to-placeholder) for `t('key', { … })`.
@@ -77,6 +80,36 @@ they work regardless of how (or whether) the TS service types the import.
    classes are still flagged.
    → `CssModuleUnusedClassInspection`
 
+### CSS module `@import` chains (Sass overrides & navigation)
+
+Sass inlines an `@import`-ed `.module.scss` into the importing module's local scope,
+so its classes are exported on `styles`. These features build on that:
+
+- **"Overrides imported class" inspection.** A class in a `*.module.scss|css|sass|less`
+  whose name is also declared in a module it (transitively) `@import`s is flagged with a
+  WARNING naming the source file — e.g. `.nextButton` in `styles.module.scss` overriding
+  `.nextButton` from `@import`-ed `common.module.scss`. Both rules apply (Sass inlines
+  the import) and the local one wins the cascade; this surfaces the shadowing.
+  → `CssModuleOverrideClassInspection`, `CssModules.importedClassOrigins`
+
+- **Go-to-declaration on `styles.<class>` → the single effective declaration.**
+  Cmd+Click / Cmd+B navigates to the **local override** when the importing module
+  redefines an `@import`-ed class, else to the declaring file in the chain — instead of
+  the TS-Go service's multi-target "Choose Declaration" popup. Implemented by
+  **overriding the `GotoDeclaration` action** (`overrides="true"`), because under the
+  TS-Go fork navigation bypasses the `gotoDeclarationHandler`/`directNavigationProvider`
+  EPs (see gotcha #7). The resolver runs on `originalFile` (navigation hands a
+  non-physical PSI copy whose `virtualFile` is null — gotcha #8).
+  → `CssModuleGotoDeclarationAction`, `CssModuleClassNavigation`
+
+- **Add `@import` for a name-resolved SCSS symbol (Alt+Enter).** On a `@include <mixin>`,
+  a `@function` call, a `$variable`, or a `%placeholder` that resolves only by name
+  (its defining file isn't imported), an intention adds `@import '<path>';` for the file
+  that defines it — using the project's `@/` tsconfig alias when one matches
+  (`@/styles/mixins.scss`), else a relative path. Backed by a cached project symbol index.
+  → `CssModuleImportSymbolIntention`, `CssModules.scssSymbolIndex` / `scssDefinedSymbols`
+  / `importSpecifierFor` / `importsTarget`
+
 ### i18n translation keys (`react-i18next`)
 
 The project's translations live in a large nested locale JSON
@@ -142,9 +175,21 @@ src/main/kotlin/com/intch/cssmodules/
   CssModuleStylesCompletion.kt        // feature 4
   CssModuleUnknownClassInspection.kt  // feature 5
   CssModuleUnusedClassInspection.kt   // feature 6
+  CssModuleOverrideClassInspection.kt // overrides-imported-class warning
+  CssModuleClassNavigation.kt         // shared styles.<class> -> effective decl resolver
+  CssModuleGotoDeclarationAction.kt   // overrides GotoDeclaration for styles.<class>
+  CssModuleGotoDeclarationHandler.kt  // legacy go-to EP (kept; not on the TS-Go path)
+  CssModuleDirectNavigationProvider.kt// directNavigation EP (kept; not on the TS-Go path)
+  CssModuleImportSymbolIntention.kt   // Alt+Enter: @import a name-resolved SCSS symbol
   CssScopedStartup.kt                 // DIAGNOSTIC ONLY: startup + /tmp markers
 src/main/resources/META-INF/plugin.xml
 ```
+
+> Note: `CssModuleGotoDeclarationHandler` and `CssModuleDirectNavigationProvider` are
+> retained for non-tsgo setups but are NOT invoked under the TS-Go fork (it owns
+> `styles.<class>` resolution); the working path is the `GotoDeclaration` action override.
+> Temporary diagnostic logging (`[CSS-GOTOACTION]`/`[CSS-DIRECTNAV]`/`[CSS-NAV]`) is still
+> in place — safe to strip for a clean release.
 
 ### `CssModules` (shared helpers)
 The heart of the resolution logic, all on generic PSI (no TS service):
@@ -164,7 +209,15 @@ The heart of the resolution logic, all on generic PSI (no TS service):
 - `findImporters(moduleFile)` → files that import a module + the local binding
   name each uses.
 - `collectUsedClassNames(moduleFile)` → class names actually referenced as
-  `<binding>.<name>` across importers.
+  `<binding>.<name>` across importers (and consumers up the `@import` chain).
+- `collectClassOrigins(moduleFile)` / `importedClassOrigins(moduleFile)` → class name →
+  declaring file (own-first); the latter excludes own classes (drives the override
+  inspection and `styles.<class>` go-to).
+- `scssDefinedSymbols(text)` / `scssSymbolIndex(project)` → SCSS `@mixin`/`@function`/
+  `$var`/`%placeholder` names, and a cached project-wide name → defining-file index.
+- `importSpecifierFor(project, fromDir, target)` / `importsTarget(scssFile, target)` →
+  build an `@/`-alias (or relative) import specifier, and test whether a file already
+  imports a target (used by the Alt+Enter `@import` intention).
 - `prevMeaningfulLeaf` / `nextMeaningfulLeaf` → whitespace/comment-skipping leaf
   navigation, used to detect `<qualifier> . <member>` purely from tokens.
 
@@ -174,6 +227,9 @@ The heart of the resolution logic, all on generic PSI (no TS service):
 | Find Usages | `findUsagesHandlerFactory` (`order="first"`) | `com.intellij` |
 | Completion | `completion.contributor` (per JS/TS language, `order="first"`) | `com.intellij` |
 | Unknown/Unused inspections | `localInspection` (per language) | `com.intellij` |
+| Overrides-imported-class inspection | `localInspection` (`language="CSS"` once — covers dialects) | `com.intellij` |
+| `styles.<class>` go-to | `<action id="GotoDeclaration" overrides="true">` (+ unused `gotoDeclarationHandler` / `lang.directNavigationProvider`) | `com.intellij` |
+| `@import` a SCSS symbol | `intentionAction` | `com.intellij` |
 | Auto-import candidate | `importCandidatesFactory` | `JavaScript` |
 | Import popup filter | `importCandidatesFilterFactory` | `JavaScript` |
 
@@ -224,6 +280,25 @@ it does.
    (2.3.0), so the Kotlin Gradle plugin must be **2.3.0**. `buildSearchableOptions`
    is disabled (it launches a headless IDE that fails on the bundled JBR).
 
+7. **The TS-Go fork owns `styles.<class>` navigation — go-to EPs are bypassed.**
+   `styles.nextButton` resolves to every same-named CSS declaration via the fork's
+   own reference resolution; neither `gotoDeclarationHandler` nor
+   `lang.directNavigationProvider` is invoked on click (verified: 0 invocations in
+   idea.log). The only thing that intercepts it is **overriding the `GotoDeclaration`
+   action** (`<action id="GotoDeclaration" overrides="true">`) — its `actionPerformed`
+   runs for both Cmd+B and Cmd+Click (it `implements CtrlMouseAction`). Wrap the
+   interception in try/catch and delegate to `super` for everything else so a failure
+   can never break normal navigation.
+
+8. **Navigation hands a non-physical PSI copy.** During go-to, `element.containingFile`
+   can be a copy whose `virtualFile` is null — so resolving imports against it returns
+   null. Resolve against `containingFile.originalFile` (physical file, same text).
+
+9. **`localInspection` for CSS dialects: register on `language="CSS"` ONCE.** SCSS/SASS/
+   LESS are dialects of CSS, so registering the same inspection per-dialect makes a
+   `.scss` file match multiple registrations and report each problem 2–3×. A single
+   `language="CSS"` registration covers all dialects exactly once.
+
 ### Not a plugin problem: CSS-module typing under tsgo
 `styles.container` completion/types from the **TS service** break because tsgo
 doesn't load `typescript-plugin-css-modules` (declared in `tsconfig.json` →
@@ -243,7 +318,8 @@ JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
   ./gradlew clean buildPlugin
 ```
 
-Output: `build/distributions/css-modules-scoped-usages-<version>.zip`
+Output: `build/distributions/webdx-<version>.zip` (the `buildPlugin` task deletes
+older `*.zip` in `build/distributions` first).
 
 On a different machine: install JDK 21 + WebStorm 2026.1, adjust the
 `local(...)` path in `build.gradle.kts` if WebStorm lives elsewhere, then run the
@@ -312,7 +388,7 @@ and helpers return empty. Verify in a throwaway test with
 |---|---|
 | `CssModulesLogicTest` | pure filename predicates (`isModuleFileName`, `isJsLikeFileName`) |
 | `CssModulesPsiTest` | `CssModules` PSI helpers (collect/resolve/bindings/importers/used) |
-| `CssModuleInspectionTest` | unused-class (CSS) + unknown-class (JS/TS) via real highlighting |
+| `CssModuleInspectionTest` | unused-class + unknown-class + overrides-imported-class, via real highlighting |
 | `CssModuleCompletionTest` | `styles.` completion + LSP-garbage suppression |
 | `CssModuleAutoImportCompletionTest` | completion auto-import: module-named entry, rename + insert import, no dup |
 | `CssModuleImportBindingTest` | `importBindingFor` binding-name derivation |
@@ -332,7 +408,11 @@ and helpers return empty. Verify in a throwaway test with
 | `I18nKeyFindUsagesTest` | Find Usages on a key property → only the resolving code refs (cross-locale filtered) |
 | `I18nPlaceholderNavigationTest` | Cmd+Click an option key → caret on the `{{placeholder}}` in the value |
 | `CssScssImportLogicTest` | pure: SCSS `@import`/`@use`/`@forward` path parsing + tsconfig alias parsing |
-| `CssScssImportPsiTest` | import path resolution (relative + `@/` alias), transitive `collectAllClassNames`, module import graph + reverse reachability |
+| `CssScssImportPsiTest` | import path resolution (relative + `@/` alias), transitive `collectAllClassNames`, module import graph + reverse reachability, `importedClassOrigins` |
+| `CssModuleGotoDeclarationTest` | `styles.<class>` resolves to the single effective decl (local override vs imported) via `CssModuleClassNavigation` |
+| `CssModuleDirectNavigationTest` | the `DirectNavigationProvider` returns the same single target |
+| `CssModuleNavRealShapeTest` | reproduces the real JSX `className={styles.x}` + `@/`-alias chain + override shape |
+| `CssModuleImportSymbolIntentionTest` | Alt+Enter `@import` intention: alias import for mixin/variable; not offered when imported / unknown |
 
 > **JSX PSI note:** in a `.tsx`, a `<Trans/>` element is itself a `JSLiteralExpression`
 > subtype (`JSXXmlLiteralExpression`), and the `i18nKey` value is an `XmlAttributeValue`
@@ -352,13 +432,18 @@ triggers (probed — no highlights, no quick-fixes). Verify it manually in the I
 ---
 
 ## Possible next steps
-- Strip the diagnostic markers (`CssScopedStartup.kt`, the `/tmp` writes, the
-  `[CSS-SCOPED]` logs) for a clean release build.
+- **Clean-release cleanup:** strip the diagnostic markers (`CssScopedStartup.kt`, the
+  `/tmp` writes, the `[CSS-SCOPED]`/`[CSS-GOTOACTION]`/`[CSS-DIRECTNAV]`/`[CSS-NAV]`
+  WARN logs), and drop the unused `CssModuleGotoDeclarationHandler` /
+  `CssModuleDirectNavigationProvider` (not invoked under the TS-Go fork — the
+  `GotoDeclaration` action override is the working path).
+- `styles.<class>` go-to only intercepts the `GotoDeclaration` action; a non-standard
+  keybinding/gesture bound to a *different* navigation action isn't covered.
 - Quick-fix on the "Unknown CSS class" inspection (create the class in the module).
 - Handle bracket access `styles['kebab-case']` for the inspections.
 - Suppress the "unused" warning when a module is accessed dynamically
   (`styles[variable]`) in an importer.
-- Rename for `styles.foo` ↔ the CSS class. (Go-to-declaration is implemented in
-  `CssModuleGotoDeclarationHandler` — it targets the effective/local-override
-  declaration; note the platform still merges in the TS service's own targets.)
+- Rename for `styles.foo` ↔ the CSS class.
+- Collapse the per-dialect registrations of the unused/unknown inspections to a single
+  `language="CSS"` each (same dialect-duplication risk as gotcha #9).
 ```
