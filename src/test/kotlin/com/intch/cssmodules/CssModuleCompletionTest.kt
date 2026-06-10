@@ -1,5 +1,6 @@
 package com.intch.cssmodules
 
+import com.intellij.codeInsight.lookup.LookupElementPresentation
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 /**
@@ -69,5 +70,31 @@ class CssModuleCompletionTest : BasePlatformTestCase() {
             "expected own + imported classes, got: $suggestions",
             suggestions.containsAll(listOf("local", "nextButton", "note")),
         )
+    }
+
+    fun testTypeTextShowsTheDeclaringFilePerClass() {
+        myFixture.addFileToProject("common.module.scss", ".nextButton { } .note { }")
+        myFixture.addFileToProject(
+            "Comp.module.scss",
+            "@import './common.module.scss';\n.local { }",
+        )
+        myFixture.configureByText(
+            "Comp.tsx",
+            "import styles from './Comp.module.scss';\nfunction f() { return styles.<caret>; }",
+        )
+        myFixture.completeBasic()
+        val elements = myFixture.lookupElements ?: emptyArray()
+
+        fun typeTextOf(name: String): String? {
+            val el = elements.firstOrNull { it.lookupString == name } ?: return null
+            val p = LookupElementPresentation()
+            el.renderElement(p)
+            return p.typeText
+        }
+
+        // The imported classes show their real source file, the own class shows its own file.
+        assertEquals("common.module.scss", typeTextOf("nextButton"))
+        assertEquals("common.module.scss", typeTextOf("note"))
+        assertEquals("Comp.module.scss", typeTextOf("local"))
     }
 }

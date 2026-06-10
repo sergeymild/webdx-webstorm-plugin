@@ -57,8 +57,10 @@ they work regardless of how (or whether) the TS service types the import.
    After `styles.`, the popup shows the **real class names** from the imported
    module (`mobileWrapper`, `container`, …) and suppresses the `any`-typed garbage
    that tsgo returns. Classes pulled in by a Sass `@import` / `@use` / `@forward`
-   (including via the `@/` tsconfig alias, transitively) are included too.
-   → `CssModuleStylesCompletion`
+   (including via the `@/` tsconfig alias, transitively) are included too, and each
+   entry's type-text shows the file that actually declares it (`common.module.scss`
+   for an imported class), not the entry module.
+   → `CssModuleStylesCompletion`, `CssModules.collectClassOrigins`
 
 5. **"Unknown CSS class" inspection (JS/TS side).**
    `styles.doesNotExist` is highlighted as an error when the class is not defined
@@ -269,7 +271,7 @@ read logs:
 ## Tests
 
 The suite runs the real IntelliJ engine against the locally-installed WebStorm SDK
-on in-memory `BasePlatformTestCase` fixtures (no mocks). 119 tests, all green.
+on in-memory `BasePlatformTestCase` fixtures (no mocks). 120 tests, all green.
 
 ```bash
 JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \

@@ -55,11 +55,13 @@ class CssModuleStylesCompletion : CompletionContributor() {
         val binding = qualifier?.text
         val moduleFile = if (binding != null && binding.isNotEmpty() && binding.first().isJavaIdentifierStart())
             CssModules.resolveModuleForBinding(file, binding) else null
-        val classes = moduleFile?.let { CssModules.collectAllClassNames(it) } ?: emptyList()
-        if (moduleFile == null || classes.isEmpty()) return
+        val origins = moduleFile?.let { CssModules.collectClassOrigins(it) } ?: emptyMap()
+        if (moduleFile == null || origins.isEmpty()) return
 
-        for (name in classes) {
-            val element = LookupElementBuilder.create(name).withTypeText(moduleFile.name, true)
+        for ((name, sourceFile) in origins) {
+            // Show the file that actually declares the class, so an `@import`-inlined
+            // class reads as its real source (e.g. common.module.scss), not the entry module.
+            val element = LookupElementBuilder.create(name).withTypeText(sourceFile.name, true)
             result.addElement(PrioritizedLookupElement.withPriority(element, 100.0))
         }
         // Run every other contributor (incl. the LSP one) through our consumer and

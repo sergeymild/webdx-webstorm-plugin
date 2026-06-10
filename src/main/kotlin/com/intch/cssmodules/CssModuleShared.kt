@@ -91,17 +91,29 @@ internal object CssModules {
 
     /** Own class names plus those of every transitively imported CSS module (cycle-safe). */
     fun collectAllClassNames(moduleFile: PsiFile): List<String> =
+        collectClassOrigins(moduleFile).keys.toList()
+
+    /**
+     * Each class reachable from [moduleFile] mapped to the file that declares it.
+     * Walks own classes first, then imported ones, so on a name clash the module's
+     * OWN file wins (it's the effective declaration by the Sass `@import` cascade).
+     */
+    fun collectClassOrigins(moduleFile: PsiFile): Map<String, PsiFile> =
         CachedValuesManager.getCachedValue(moduleFile) {
-            val out = LinkedHashSet<String>()
-            collectAllInto(moduleFile, out, HashSet())
-            CachedValueProvider.Result.create(out.toList(), PsiModificationTracker.MODIFICATION_COUNT)
+            val out = LinkedHashMap<String, PsiFile>()
+            collectOriginsInto(moduleFile, out, HashSet())
+            CachedValueProvider.Result.create(out, PsiModificationTracker.MODIFICATION_COUNT)
         }
 
-    private fun collectAllInto(file: PsiFile, out: MutableSet<String>, visited: MutableSet<VirtualFile>) {
+    private fun collectOriginsInto(
+        file: PsiFile,
+        out: MutableMap<String, PsiFile>,
+        visited: MutableSet<VirtualFile>,
+    ) {
         val vf = file.virtualFile ?: return
         if (!visited.add(vf)) return
-        out.addAll(collectClassNames(file))
-        for (imported in directModuleImports(file)) collectAllInto(imported, out, visited)
+        for (name in collectClassNames(file)) out.putIfAbsent(name, file)
+        for (imported in directModuleImports(file)) collectOriginsInto(imported, out, visited)
     }
 
     private val CSS_EXTS = listOf("scss", "sass", "less", "css")

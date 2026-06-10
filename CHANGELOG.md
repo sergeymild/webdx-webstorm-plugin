@@ -15,6 +15,14 @@ Build a distributable zip: `./gradlew buildPlugin` → `build/distributions/webd
 `BasePlatformTestCase`). All features resolve from source files, so they work on the
 tsgo engine where the TS language service doesn't load plugins.
 
+## 1.4.2 — 2026-06-10
+- **`styles.` completion shows each class's real source file.** The type-text on the
+  right of every completion entry is now the file that actually declares the class —
+  so an `@import`-inlined class reads as e.g. `common.module.scss`, not the entry
+  module — instead of labelling everything with the entry module's name.
+  (`CssModules.collectClassOrigins`; `collectAllClassNames` derives from it.)
+- 120 tests.
+
 ## 1.4.1 — 2026-06-10
 - **Scoped Find Usages follows the `@import` chain.** Find Usages / Cmd+Click on a
   class in a shared module (e.g. `common.module.scss`, consumed via Sass `@import`)
