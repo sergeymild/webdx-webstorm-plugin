@@ -45,4 +45,29 @@ class CssScssImportLogicTest {
             CssModules.scssImportPaths(".a { color: red; }\n@media screen { .b {} }"),
         )
     }
+
+    @Test
+    fun `parses baseUrl and a wildcard path mapping`() {
+        val ts = """
+            { "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["./*"] } } }
+        """.trimIndent()
+        val cfg = CssModules.tsconfigAliases(ts)
+        assertEquals(".", cfg.baseUrl)
+        assertEquals(mapOf("@/*" to "./*"), cfg.paths)
+    }
+
+    @Test
+    fun `parses paths when baseUrl is absent`() {
+        val ts = """{ "compilerOptions": { "paths": { "@/*": ["./*"], "~/*": ["./src/*"] } } }"""
+        val cfg = CssModules.tsconfigAliases(ts)
+        assertEquals(null, cfg.baseUrl)
+        assertEquals(mapOf("@/*" to "./*", "~/*" to "./src/*"), cfg.paths)
+    }
+
+    @Test
+    fun `empty config when no paths`() {
+        val cfg = CssModules.tsconfigAliases("""{ "compilerOptions": { "strict": true } }""")
+        assertEquals(null, cfg.baseUrl)
+        assertEquals(emptyMap<String, String>(), cfg.paths)
+    }
 }

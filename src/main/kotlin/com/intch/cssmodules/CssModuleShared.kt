@@ -11,6 +11,9 @@ import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.searches.ReferencesSearch
 import com.intellij.psi.util.PsiTreeUtil
 
+/** Minimal view of a tsconfig's path aliasing: optional baseUrl + `paths` mappings (first target only). */
+internal data class TsconfigAliases(val baseUrl: String?, val paths: Map<String, String>)
+
 /** Shared CSS-module helpers used by completion, the unused-class inspection, etc. */
 internal object CssModules {
 
@@ -22,6 +25,28 @@ internal object CssModules {
         SCSS_IMPORT.findAll(text)
             .flatMap { m -> QUOTED.findAll(m.groupValues[1]).map { it.groupValues[1] } }
             .toList()
+
+    private val TS_BASE_URL = Regex(""""baseUrl"\s*:\s*"([^"]+)"""")
+    private val TS_PATHS_BLOCK = Regex(""""paths"\s*:\s*\{""")
+    private val TS_PATH_ENTRY = Regex(""""([^"]+)"\s*:\s*\[\s*"([^"]+)"""")
+
+    /** Parse `compilerOptions.baseUrl` and `compilerOptions.paths` (first target per key) from tsconfig text. */
+    fun tsconfigAliases(text: String): TsconfigAliases {
+        val baseUrl = TS_BASE_URL.find(text)?.groupValues?.get(1)
+        val blockStart = TS_PATHS_BLOCK.find(text)?.range?.last ?: return TsconfigAliases(baseUrl, emptyMap())
+        // Take the balanced `{ ... }` that opens at blockStart.
+        var depth = 0
+        var end = blockStart
+        for (i in blockStart until text.length) {
+            when (text[i]) {
+                '{' -> depth++
+                '}' -> { depth--; if (depth == 0) { end = i; break } }
+            }
+        }
+        val block = text.substring(blockStart, end)
+        val paths = TS_PATH_ENTRY.findAll(block).associate { it.groupValues[1] to it.groupValues[2] }
+        return TsconfigAliases(baseUrl, paths)
+    }
 
     fun isModuleFileName(name: String): Boolean {
         val n = name.lowercase()
