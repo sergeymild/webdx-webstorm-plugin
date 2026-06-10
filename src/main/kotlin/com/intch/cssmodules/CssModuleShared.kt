@@ -34,7 +34,8 @@ internal object CssModules {
     fun tsconfigAliases(text: String): TsconfigAliases {
         val baseUrl = TS_BASE_URL.find(text)?.groupValues?.get(1)
         val blockStart = TS_PATHS_BLOCK.find(text)?.range?.last ?: return TsconfigAliases(baseUrl, emptyMap())
-        // Take the balanced `{ ... }` that opens at blockStart.
+        // Take the balanced `{ ... }` that opens at blockStart. Not string-aware:
+        // assumes no `{`/`}` inside path keys/values (true for glob aliases like `@/*`).
         var depth = 0
         var end = blockStart
         for (i in blockStart until text.length) {
@@ -43,7 +44,7 @@ internal object CssModules {
                 '}' -> { depth--; if (depth == 0) { end = i; break } }
             }
         }
-        val block = text.substring(blockStart, end)
+        val block = text.substring(blockStart, end + 1)
         val paths = TS_PATH_ENTRY.findAll(block).associate { it.groupValues[1] to it.groupValues[2] }
         return TsconfigAliases(baseUrl, paths)
     }
