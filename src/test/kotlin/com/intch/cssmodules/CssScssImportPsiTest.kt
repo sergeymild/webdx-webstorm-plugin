@@ -32,6 +32,18 @@ class CssScssImportPsiTest : BasePlatformTestCase() {
         assertEquals(common.virtualFile, resolved)
     }
 
+    fun testResolvesAtAliasWithBaseUrl() {
+        myFixture.addFileToProject(
+            "tsconfig.json",
+            """{ "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["src/*"] } } }""",
+        )
+        val common = myFixture.addFileToProject("src/shared/common.module.scss", ".x {}")
+        val from = myFixture.addFileToProject("src/feat/Comp.module.scss", "")
+        val dir = from.virtualFile.parent
+        val resolved = CssModules.resolveImportPath(dir, project, "@/shared/common.module.scss")
+        assertEquals(common.virtualFile, resolved)
+    }
+
     fun testUnresolvableReturnsNull() {
         val from = myFixture.addFileToProject("src/Comp.module.scss", "")
         val dir = from.virtualFile.parent

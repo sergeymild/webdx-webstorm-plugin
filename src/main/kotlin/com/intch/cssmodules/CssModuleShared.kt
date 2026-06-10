@@ -155,7 +155,7 @@ internal object CssModules {
      */
     fun resolveImportPath(fromDir: VirtualFile, project: Project, path: String): VirtualFile? {
         if (path.startsWith(".")) return resolveRelative(fromDir, path)
-        return resolveAlias(fromDir, path)
+        return resolveAlias(fromDir, path) ?: resolveRelative(fromDir, path)
     }
 
     private fun resolveAlias(fromDir: VirtualFile, path: String): VirtualFile? {
@@ -179,7 +179,7 @@ internal object CssModules {
             val prefix = key.dropLast(1) // "@/*" -> "@/"
             if (!path.startsWith(prefix)) return null
             val wildcard = path.substring(prefix.length)
-            return template.replace("*", wildcard)
+            return template.replaceFirst("*", wildcard)
         }
         return if (path == key) template else null
     }
