@@ -10,8 +10,6 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.css.CssClass
-import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.search.searches.ReferencesSearch
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.usageView.UsageInfo
 import com.intellij.util.Processor
@@ -93,54 +91,37 @@ class CssModuleFindUsagesHandlerFactory : FindUsagesHandlerFactory() {
             val className = cssClass.name?.removePrefix(".")?.takeIf { it.isNotEmpty() } ?: return@compute true
             val moduleFile = target.containingFile ?: return@compute true
             val project = moduleFile.project
+            val psiManager = com.intellij.psi.PsiManager.getInstance(project)
 
-            // file -> the local binding names this file uses for the module (e.g. "styles")
-            val importers = LinkedHashMap<PsiFile, MutableSet<String>>()
-            ReferencesSearch
-                .search(moduleFile, GlobalSearchScope.projectScope(project))
-                .forEach { ref ->
-                    val f = ref.element.containingFile ?: return@forEach
-                    val set = importers.getOrPut(f) { linkedSetOf() }
-                    importBindingName(ref.element)?.let { set.add(it) }
+            // JS files that import this module OR any module that transitively @imports it
+            // (Sass inlines the class into the consumer's `styles`), with the local binding(s) used.
+            val jsImporters = LinkedHashMap<PsiFile, MutableSet<String>>()
+            for (vf in CssModules.modulesTransitivelyImporting(moduleFile)) {
+                val consumer = psiManager.findFile(vf) ?: continue
+                for ((file, bindings) in CssModules.findImporters(consumer)) {
+                    if (!CssModules.isJsLikeFileName(file.name)) continue
+                    if (bindings.isEmpty()) continue
+                    jsImporters.getOrPut(file) { linkedSetOf() }.addAll(bindings)
                 }
-
-            log.warn("[CSS-SCOPED] class='$className' module='${moduleFile.name}' importers=${importers.keys.map { it.name }}")
+            }
 
             var count = 0
-            for ((file, bindings) in importers) {
+            for ((file, bindings) in jsImporters) {
                 val leaves = PsiTreeUtil.collectElements(file) { el ->
                     el.firstChild == null && el.textLength == className.length && el.text == className
                 }
                 for (leaf in leaves) {
                     val dot = prevMeaningfulLeaf(leaf) ?: continue
                     if (dot.text != ".") continue // must be a `.className` property access
-                    if (bindings.isNotEmpty()) {
-                        val qualifier = prevMeaningfulLeaf(dot) ?: continue
-                        if (qualifier.text !in bindings) continue // qualified by the module import
-                    }
+                    val qualifier = prevMeaningfulLeaf(dot) ?: continue
+                    if (qualifier.text !in bindings) continue // qualified by a module import binding
                     if (!processor.process(UsageInfo(leaf))) return@compute false
                     count++
                 }
             }
-            log.warn("[CSS-SCOPED] reported $count usage(s) for '$className'")
+            log.warn("[CSS-SCOPED] reported $count usage(s) for '$className' via ${jsImporters.keys.map { it.name }}")
             true
         }
-    }
-
-    /** Pull the default import binding name out of the import statement, e.g. `styles`. */
-    private fun importBindingName(refElement: PsiElement): String? {
-        var cur: PsiElement? = refElement
-        var depth = 0
-        while (cur != null && depth < 12) {
-            val text = cur.text
-            if (text.startsWith("import")) {
-                Regex("""import\s+(\w+)""").find(text)?.let { return it.groupValues[1] }
-                return null
-            }
-            cur = cur.parent
-            depth++
-        }
-        return null
     }
 
     private fun prevMeaningfulLeaf(el: PsiElement): PsiElement? {

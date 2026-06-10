@@ -69,4 +69,32 @@ class CssModuleFindUsagesTest : BasePlatformTestCase() {
         assertEquals("usages: ${usages.map { it.element?.containingFile?.name }}", 1, usages.size)
         assertEquals("B.tsx", usages.first().element?.containingFile?.name)
     }
+
+    fun testReportsUsagesThroughAtImportChain() {
+        // common is @import-ed into Comp.module.scss (CSS-to-CSS); Comp.tsx uses styles.shared.
+        myFixture.addFileToProject(
+            "Comp.module.scss",
+            "@import './common.module.scss';\n.local { @extend .shared; }",
+        )
+        myFixture.addFileToProject(
+            "Comp.tsx",
+            "import styles from './Comp.module.scss';\nconst a = styles.shared;\nconst b = styles.shared;",
+        )
+        // An UNRELATED module that also declares .shared — must NOT be reported.
+        myFixture.addFileToProject("Other.module.scss", ".shared { color: blue; }")
+
+        myFixture.configureByText("common.module.scss", ".sha<caret>red { color: red; }")
+
+        val usages = myFixture.findUsages(cssClassAtCaret())
+        // Only the two styles.shared in Comp.tsx (through the @import chain).
+        // The @extend .shared and Other.module.scss's .shared declaration must NOT appear.
+        assertEquals(
+            "usages: ${usages.map { it.element?.containingFile?.name + ":" + it.element?.text }}",
+            2, usages.size,
+        )
+        assertTrue(
+            "all usages must be in Comp.tsx",
+            usages.all { it.element?.containingFile?.name == "Comp.tsx" },
+        )
+    }
 }
