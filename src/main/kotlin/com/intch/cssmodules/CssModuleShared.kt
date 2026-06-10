@@ -14,6 +14,15 @@ import com.intellij.psi.util.PsiTreeUtil
 /** Shared CSS-module helpers used by completion, the unused-class inspection, etc. */
 internal object CssModules {
 
+    private val SCSS_IMPORT = Regex("""@(?:import|use|forward)\b([^;{}\n]*)""")
+    private val QUOTED = Regex("""['"]([^'"]+)['"]""")
+
+    /** All paths referenced by `@import`/`@use`/`@forward` in SCSS [text], in order. */
+    fun scssImportPaths(text: String): List<String> =
+        SCSS_IMPORT.findAll(text)
+            .flatMap { m -> QUOTED.findAll(m.groupValues[1]).map { it.groupValues[1] } }
+            .toList()
+
     fun isModuleFileName(name: String): Boolean {
         val n = name.lowercase()
         return n.endsWith(".module.css") ||
