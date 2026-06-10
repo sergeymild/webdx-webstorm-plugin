@@ -1,5 +1,7 @@
 package com.intch.cssmodules
 
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiComment
 import com.intellij.psi.PsiElement
@@ -144,6 +146,52 @@ internal object CssModules {
         var p = PsiTreeUtil.nextLeaf(el)
         while (p != null && (p is PsiWhiteSpace || p is PsiComment)) p = PsiTreeUtil.nextLeaf(p)
         return p
+    }
+
+    /**
+     * Resolve a SCSS `@import`/`@use`/`@forward` [path] to a VirtualFile.
+     * Relative (`.`/`..`/bare) resolve against [fromDir]; `@/`-style aliases resolve
+     * via the nearest tsconfig's `paths`. Returns null if nothing resolves.
+     */
+    fun resolveImportPath(fromDir: VirtualFile, project: Project, path: String): VirtualFile? {
+        if (path.startsWith(".")) return resolveRelative(fromDir, path)
+        return resolveAlias(fromDir, path)
+    }
+
+    private fun resolveAlias(fromDir: VirtualFile, path: String): VirtualFile? {
+        val tsconfig = findTsconfig(fromDir) ?: return null
+        val text = runCatching { VfsUtilCore.loadText(tsconfig) }.getOrNull() ?: return null
+        val cfg = tsconfigAliases(text)
+        val tsDir = tsconfig.parent ?: return null
+        val baseDir = cfg.baseUrl
+            ?.let { resolveRelative(tsDir, it) }
+            ?: tsDir
+        for ((key, template) in cfg.paths) {
+            val mapped = applyAlias(key, template, path) ?: continue
+            resolveRelative(baseDir, mapped)?.let { return it }
+        }
+        return null
+    }
+
+    // Glob alias (key ending with "/*") maps by wildcard prefix; exact key matches path literally.
+    private fun applyAlias(key: String, template: String, path: String): String? {
+        if (key.endsWith("/*")) {
+            val prefix = key.dropLast(1) // "@/*" -> "@/"
+            if (!path.startsWith(prefix)) return null
+            val wildcard = path.substring(prefix.length)
+            return template.replace("*", wildcard)
+        }
+        return if (path == key) template else null
+    }
+
+    /** Walk up from [start] looking for a `tsconfig.json`. */
+    private fun findTsconfig(start: VirtualFile): VirtualFile? {
+        var cur: VirtualFile? = start
+        while (cur != null) {
+            cur.findChild("tsconfig.json")?.let { return it }
+            cur = cur.parent
+        }
+        return null
     }
 
     private fun resolveRelative(from: VirtualFile, path: String): VirtualFile? {
