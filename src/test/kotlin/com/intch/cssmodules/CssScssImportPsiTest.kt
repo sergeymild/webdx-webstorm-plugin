@@ -83,4 +83,24 @@ class CssScssImportPsiTest : BasePlatformTestCase() {
         )
         assertEquals(setOf("local"), CssModules.collectAllClassNames(mod).toSet())
     }
+
+    // --- modulesTransitivelyImporting -------------------------------------
+
+    fun testReverseReachabilityFindsDirectAndTransitiveImporters() {
+        val common = myFixture.addFileToProject("src/common.module.scss", ".x {}")
+        val mid = myFixture.addFileToProject("src/Mid.module.scss", "@import './common.module.scss';\n.m {}")
+        val top = myFixture.addFileToProject("src/Top.module.scss", "@import './Mid.module.scss';\n.t {}")
+        myFixture.addFileToProject("src/Unrelated.module.scss", ".u {}")
+
+        val importers = CssModules.modulesTransitivelyImporting(common)
+        assertEquals(
+            setOf(common.virtualFile, mid.virtualFile, top.virtualFile),
+            importers,
+        )
+    }
+
+    fun testReverseReachabilityIsJustSelfWhenNobodyImports() {
+        val lonely = myFixture.addFileToProject("src/Lonely.module.scss", ".x {}")
+        assertEquals(setOf(lonely.virtualFile), CssModules.modulesTransitivelyImporting(lonely))
+    }
 }

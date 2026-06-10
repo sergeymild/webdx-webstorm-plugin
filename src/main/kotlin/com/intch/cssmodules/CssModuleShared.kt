@@ -9,6 +9,7 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.css.CssClass
+import com.intellij.psi.search.FilenameIndex
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.searches.ReferencesSearch
 import com.intellij.psi.util.CachedValueProvider
@@ -101,6 +102,40 @@ internal object CssModules {
         if (!visited.add(vf)) return
         out.addAll(collectClassNames(file))
         for (imported in directModuleImports(file)) collectAllInto(imported, out, visited)
+    }
+
+    private val CSS_EXTS = listOf("scss", "sass", "less", "css")
+
+    /** Forward graph over all CSS-module files: file -> the CSS-module files it directly imports. */
+    fun moduleImportGraph(project: Project): Map<VirtualFile, Set<VirtualFile>> =
+        CachedValuesManager.getManager(project).getCachedValue(project) {
+            val psiManager = PsiManager.getInstance(project)
+            val scope = GlobalSearchScope.projectScope(project)
+            val graph = HashMap<VirtualFile, Set<VirtualFile>>()
+            for (ext in CSS_EXTS) {
+                for (vf in FilenameIndex.getAllFilesByExt(project, ext, scope)) {
+                    if (!isModuleFileName(vf.name)) continue
+                    val psi = psiManager.findFile(vf) ?: continue
+                    graph[vf] = directModuleImports(psi).mapNotNull { it.virtualFile }.toSet()
+                }
+            }
+            CachedValueProvider.Result.create(graph, PsiModificationTracker.MODIFICATION_COUNT)
+        }
+
+    /** [moduleFile] plus every CSS module that transitively imports it. */
+    fun modulesTransitivelyImporting(moduleFile: PsiFile): Set<VirtualFile> {
+        val target = moduleFile.virtualFile ?: return emptySet()
+        val graph = moduleImportGraph(moduleFile.project)
+        val reached = hashSetOf(target)
+        var changed = true
+        while (changed) {
+            changed = false
+            for ((importer, targets) in graph) {
+                if (importer in reached) continue
+                if (targets.any { it in reached }) { reached.add(importer); changed = true }
+            }
+        }
+        return reached
     }
 
     /**
