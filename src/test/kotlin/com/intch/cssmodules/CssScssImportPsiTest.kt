@@ -103,4 +103,23 @@ class CssScssImportPsiTest : BasePlatformTestCase() {
         val lonely = myFixture.addFileToProject("src/Lonely.module.scss", ".x {}")
         assertEquals(setOf(lonely.virtualFile), CssModules.modulesTransitivelyImporting(lonely))
     }
+
+    // --- importedClassOrigins (override detection) ------------------------
+
+    fun testImportedClassOriginsExcludesOwnAndMapsToSource() {
+        myFixture.addFileToProject("src/common.module.scss", ".nextButton {} .note {}")
+        val mod = myFixture.addFileToProject(
+            "src/Comp.module.scss",
+            "@import './common.module.scss';\n.nextButton {}\n.local {}",
+        )
+        val origins = CssModules.importedClassOrigins(mod)
+        // Only imported classes appear (nextButton, note); the own-only `local` does not.
+        assertEquals(setOf("nextButton", "note"), origins.keys)
+        assertEquals("common.module.scss", origins["nextButton"]?.name)
+    }
+
+    fun testImportedClassOriginsEmptyWithoutImports() {
+        val mod = myFixture.addFileToProject("src/Solo.module.scss", ".a {} .b {}")
+        assertTrue(CssModules.importedClassOrigins(mod).isEmpty())
+    }
 }

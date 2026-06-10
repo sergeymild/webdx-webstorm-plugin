@@ -116,6 +116,21 @@ internal object CssModules {
         for (imported in directModuleImports(file)) collectOriginsInto(imported, out, visited)
     }
 
+    /**
+     * Classes contributed by [moduleFile]'s transitively imported modules, mapped to
+     * the file that declares each — EXCLUDING [moduleFile]'s own classes. A name that
+     * appears here AND is declared in [moduleFile] is a local override of an
+     * `@import`-ed class. Cached on [moduleFile].
+     */
+    fun importedClassOrigins(moduleFile: PsiFile): Map<String, PsiFile> =
+        CachedValuesManager.getCachedValue(moduleFile) {
+            val out = LinkedHashMap<String, PsiFile>()
+            val visited = HashSet<VirtualFile>()
+            moduleFile.virtualFile?.let { visited.add(it) } // don't include the file's own classes
+            for (imported in directModuleImports(moduleFile)) collectOriginsInto(imported, out, visited)
+            CachedValueProvider.Result.create<Map<String, PsiFile>>(out, PsiModificationTracker.MODIFICATION_COUNT)
+        }
+
     private val CSS_EXTS = listOf("scss", "sass", "less", "css")
 
     /** Forward graph over all CSS-module files: file -> the CSS-module files it directly imports. */

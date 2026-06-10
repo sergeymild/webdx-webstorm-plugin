@@ -49,6 +49,46 @@ class CssModuleInspectionTest : BasePlatformTestCase() {
         )
     }
 
+    // --- Override of an imported class (CSS side) -------------------------
+
+    fun testOverrideOfImportedClassIsFlagged() {
+        myFixture.addFileToProject(
+            "src/common.module.scss",
+            ".nextButton { color: red; }\n.note { color: green; }",
+        )
+        val scss = myFixture.addFileToProject(
+            "src/Comp.module.scss",
+            "@import './common.module.scss';\n.nextButton { color: blue; }\n.local { color: black; }",
+        )
+        myFixture.configureFromExistingVirtualFile(scss.virtualFile)
+        myFixture.enableInspections(CssModuleOverrideClassInspection())
+
+        val descriptions = myFixture.doHighlighting().mapNotNull { it.description }
+        assertTrue(
+            "expected 'nextButton' flagged as overriding common.module.scss, got: $descriptions",
+            descriptions.any { it.contains("'nextButton'") && it.contains("overrides") && it.contains("common.module.scss") },
+        )
+        assertFalse(
+            "'local' is not imported and must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("'local'") },
+        )
+    }
+
+    fun testNoOverrideFlaggedWithoutImports() {
+        val scss = myFixture.addFileToProject(
+            "src/Solo.module.scss",
+            ".a { color: red; }\n.b { color: blue; }",
+        )
+        myFixture.configureFromExistingVirtualFile(scss.virtualFile)
+        myFixture.enableInspections(CssModuleOverrideClassInspection())
+
+        val descriptions = myFixture.doHighlighting().mapNotNull { it.description }
+        assertFalse(
+            "nothing should be flagged as an override, got: $descriptions",
+            descriptions.any { it.contains("overrides") },
+        )
+    }
+
     // --- Unknown CSS module class (JS/TS side) ----------------------------
 
     fun testUnknownClassIsReported() {

@@ -72,6 +72,27 @@
             level="WARNING"
             implementationClass="com.intch.cssmodules.CssModuleUnusedClassInspection"/>
 
+        <localInspection language="SCSS"
+            shortName="CssModuleOverrideClass"
+            displayName="CSS module class overrides imported class"
+            groupName="CSS" enabledByDefault="true" level="WARNING"
+            implementationClass="com.intch.cssmodules.CssModuleOverrideClassInspection"/>
+        <localInspection language="SASS"
+            shortName="CssModuleOverrideClassSass"
+            displayName="CSS module class overrides imported class"
+            groupName="CSS" enabledByDefault="true" level="WARNING"
+            implementationClass="com.intch.cssmodules.CssModuleOverrideClassInspection"/>
+        <localInspection language="LESS"
+            shortName="CssModuleOverrideClassLess"
+            displayName="CSS module class overrides imported class"
+            groupName="CSS" enabledByDefault="true" level="WARNING"
+            implementationClass="com.intch.cssmodules.CssModuleOverrideClassInspection"/>
+        <localInspection language="CSS"
+            shortName="CssModuleOverrideClassCss"
+            displayName="CSS module class overrides imported class"
+            groupName="CSS" enabledByDefault="true" level="WARNING"
+            implementationClass="com.intch.cssmodules.CssModuleOverrideClassInspection"/>
+
         <localInspection language="TypeScript JSX"
             shortName="CssModuleUnknownClassTsx"
             displayName="Unknown CSS module class"

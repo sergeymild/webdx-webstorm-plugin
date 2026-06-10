@@ -15,6 +15,14 @@ Build a distributable zip: `./gradlew buildPlugin` → `build/distributions/webd
 `BasePlatformTestCase`). All features resolve from source files, so they work on the
 tsgo engine where the TS language service doesn't load plugins.
 
+## 1.5.0 — 2026-06-10
+- **New inspection: "overrides imported class".** A class in a `*.module.scss|css|sass|less`
+  whose name is also declared in a module it (transitively) `@import`s is flagged with a
+  WARNING — e.g. `.nextButton` in `styles.module.scss` overriding `.nextButton` from the
+  `@import`-ed `common.module.scss`. Message names the source file. Both rules apply (Sass
+  inlines the import) and the local one wins the cascade; this surfaces the shadowing.
+  (`CssModuleOverrideClassInspection`, `CssModules.importedClassOrigins`.) 133 tests.
+
 ## 1.4.9 — 2026-06-10
 - **Override the `GotoDeclaration` action for `styles.<class>`.** Logs proved the
   TS-Go service bypasses BOTH `gotoDeclarationHandler` and `directNavigationProvider`
