@@ -188,15 +188,20 @@ internal object CssModules {
      * Class names of [moduleFile] actually referenced as `<binding>.<name>` in any JS
      * file that imports [moduleFile] OR any CSS module that transitively imports it
      * (Sass inlines those classes, so they're exported on the consumer's `styles`).
+     * Returns null when nothing consumes the module from JS (directly or via an
+     * `@import` chain) — the caller can't tell what's used, so it should not flag anything.
      */
-    fun collectUsedClassNames(moduleFile: PsiFile): Set<String> {
+    fun collectUsedClassNames(moduleFile: PsiFile): Set<String>? {
         val ownClasses = collectClassNames(moduleFile).toSet()
-        if (ownClasses.isEmpty()) return emptySet()
+        if (ownClasses.isEmpty()) return null
         val psiManager = PsiManager.getInstance(moduleFile.project)
         val used = HashSet<String>()
+        var hasJsConsumer = false
         for (vf in modulesTransitivelyImporting(moduleFile)) {
             val consumer = psiManager.findFile(vf) ?: continue
             for ((file, bindings) in findImporters(consumer)) {
+                if (!isJsLikeFileName(file.name)) continue // only JS files reference styles.<class>
+                hasJsConsumer = true
                 PsiTreeUtil.collectElements(file) { it.firstChild == null && it.text == "." }
                     .forEach { dot ->
                         val qualifier = prevMeaningfulLeaf(dot) ?: return@forEach
@@ -206,16 +211,7 @@ internal object CssModules {
                     }
             }
         }
-        return used
-    }
-
-    /** True if [moduleFile] (or any module that transitively imports it) is imported by a JS file. */
-    fun hasConsumingImporter(moduleFile: PsiFile): Boolean {
-        val psiManager = PsiManager.getInstance(moduleFile.project)
-        return modulesTransitivelyImporting(moduleFile).any { vf ->
-            val psi = psiManager.findFile(vf) ?: return@any false
-            findImporters(psi).isNotEmpty()
-        }
+        return if (hasJsConsumer) used else null
     }
 
     fun prevMeaningfulLeaf(el: PsiElement): PsiElement? {

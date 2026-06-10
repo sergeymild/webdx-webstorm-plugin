@@ -102,7 +102,8 @@ class CssModuleInspectionTest : BasePlatformTestCase() {
     }
 
     fun testImportedClassUsedViaConsumerIsNotUnused() {
-        // common is imported (not by JS) into Comp.module.scss, used as styles.shared in Comp.tsx.
+        // common is @import-ed into Comp.module.scss (CSS-to-CSS), not imported directly by JS;
+        // used as styles.shared in Comp.tsx through that chain.
         val common = myFixture.addFileToProject(
             "src/common.module.scss",
             ".shared { color: red; }\n.deadInCommon { color: green; }",

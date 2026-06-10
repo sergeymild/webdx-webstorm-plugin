@@ -17,10 +17,8 @@ class CssModuleUnusedClassInspection : LocalInspectionTool() {
         val file = holder.file
         if (!CssModules.isModuleFileName(file.name)) return PsiElementVisitor.EMPTY_VISITOR
 
-        // Nobody consumes this module (directly or via @import chain) -> can't tell what's used.
-        if (!CssModules.hasConsumingImporter(file)) return PsiElementVisitor.EMPTY_VISITOR
-
-        val used = CssModules.collectUsedClassNames(file)
+        // Nothing consumes this module from JS (directly or via @import chain) -> can't tell what's used.
+        val used = CssModules.collectUsedClassNames(file) ?: return PsiElementVisitor.EMPTY_VISITOR
 
         return object : PsiElementVisitor() {
             override fun visitElement(element: PsiElement) {
