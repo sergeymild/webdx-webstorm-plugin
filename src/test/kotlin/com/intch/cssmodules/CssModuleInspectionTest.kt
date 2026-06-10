@@ -101,6 +101,34 @@ class CssModuleInspectionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testImportedClassUsedViaConsumerIsNotUnused() {
+        // common is imported (not by JS) into Comp.module.scss, used as styles.shared in Comp.tsx.
+        val common = myFixture.addFileToProject(
+            "src/common.module.scss",
+            ".shared { color: red; }\n.deadInCommon { color: green; }",
+        )
+        myFixture.addFileToProject(
+            "src/Comp.module.scss",
+            "@import './common.module.scss';\n.local { color: blue; }",
+        )
+        myFixture.addFileToProject(
+            "src/Comp.tsx",
+            "import styles from './Comp.module.scss';\nconst a = styles.shared;\nconst b = styles.local;",
+        )
+        myFixture.configureFromExistingVirtualFile(common.virtualFile)
+        myFixture.enableInspections(CssModuleUnusedClassInspection())
+
+        val descriptions = myFixture.doHighlighting().mapNotNull { it.description }
+        assertFalse(
+            "'shared' is used via a consumer and must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("'shared'") },
+        )
+        assertTrue(
+            "'deadInCommon' is never referenced and SHOULD be flagged, got: $descriptions",
+            descriptions.any { it.contains("'deadInCommon'") && it.contains("not used") },
+        )
+    }
+
     fun testImportedClassIsNotFlaggedAsUnknown() {
         myFixture.addFileToProject("src/common.module.scss", ".nextButton { color: red; }")
         myFixture.addFileToProject(

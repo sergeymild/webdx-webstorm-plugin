@@ -184,21 +184,38 @@ internal object CssModules {
         return map
     }
 
-    /** All class names actually referenced as `<binding>.<name>` across importing files. */
+    /**
+     * Class names of [moduleFile] actually referenced as `<binding>.<name>` in any JS
+     * file that imports [moduleFile] OR any CSS module that transitively imports it
+     * (Sass inlines those classes, so they're exported on the consumer's `styles`).
+     */
     fun collectUsedClassNames(moduleFile: PsiFile): Set<String> {
+        val ownClasses = collectClassNames(moduleFile).toSet()
+        if (ownClasses.isEmpty()) return emptySet()
+        val psiManager = PsiManager.getInstance(moduleFile.project)
         val used = HashSet<String>()
-        for ((file, bindings) in findImporters(moduleFile)) {
-            PsiTreeUtil.collectElements(file) { it.firstChild == null && it.text == "." }
-                .forEach { dot ->
-                    val qualifier = prevMeaningfulLeaf(dot) ?: return@forEach
-                    if (qualifier.text !in bindings) return@forEach
-                    val member = nextMeaningfulLeaf(dot) ?: return@forEach
-                    if (member.text.isNotEmpty() && member.text.first().isJavaIdentifierStart()) {
-                        used.add(member.text)
+        for (vf in modulesTransitivelyImporting(moduleFile)) {
+            val consumer = psiManager.findFile(vf) ?: continue
+            for ((file, bindings) in findImporters(consumer)) {
+                PsiTreeUtil.collectElements(file) { it.firstChild == null && it.text == "." }
+                    .forEach { dot ->
+                        val qualifier = prevMeaningfulLeaf(dot) ?: return@forEach
+                        if (qualifier.text !in bindings) return@forEach
+                        val member = nextMeaningfulLeaf(dot) ?: return@forEach
+                        if (member.text in ownClasses) used.add(member.text)
                     }
-                }
+            }
         }
         return used
+    }
+
+    /** True if [moduleFile] (or any module that transitively imports it) is imported by a JS file. */
+    fun hasConsumingImporter(moduleFile: PsiFile): Boolean {
+        val psiManager = PsiManager.getInstance(moduleFile.project)
+        return modulesTransitivelyImporting(moduleFile).any { vf ->
+            val psi = psiManager.findFile(vf) ?: return@any false
+            findImporters(psi).isNotEmpty()
+        }
     }
 
     fun prevMeaningfulLeaf(el: PsiElement): PsiElement? {
