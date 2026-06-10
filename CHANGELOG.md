@@ -15,6 +15,15 @@ Build a distributable zip: `./gradlew buildPlugin` → `build/distributions/webd
 `BasePlatformTestCase`). All features resolve from source files, so they work on the
 tsgo engine where the TS language service doesn't load plugins.
 
+## 1.4.1 — 2026-06-10
+- **Scoped Find Usages follows the `@import` chain.** Find Usages / Cmd+Click on a
+  class in a shared module (e.g. `common.module.scss`, consumed via Sass `@import`)
+  now lists the real `styles.<class>` references in the JS/TS files that import it
+  through the chain — instead of matching unrelated same-named `.class {`
+  declarations and `@extend`s. (`CssModuleFindUsagesHandlerFactory` reuses
+  `modulesTransitivelyImporting` + `findImporters`, JS-only with a binding qualifier.)
+- 119 tests.
+
 ## 1.4.0 — 2026-06-10
 - **CSS Modules: follow Sass `@import`.** Classes Sass inlines into a module via
   `@import` / `@use` / `@forward` (relative paths and the `@/` tsconfig alias,
@@ -24,13 +33,7 @@ tsgo engine where the TS language service doesn't load plugins.
   flagged. (`CssModules.scssImportPaths`/`tsconfigAliases`/`resolveImportPath`/
   `collectAllClassNames`/`moduleImportGraph`/`modulesTransitivelyImporting`, widened
   `collectUsedClassNames`.)
-- **Scoped Find Usages follows the `@import` chain.** Find Usages / Cmd+Click on a
-  class in a shared module (e.g. `common.module.scss`, consumed via Sass `@import`)
-  now lists the real `styles.<class>` references in the JS/TS files that import it
-  through the chain — instead of matching unrelated same-named `.class {`
-  declarations and `@extend`s. (`CssModuleFindUsagesHandlerFactory` reuses
-  `modulesTransitivelyImporting` + `findImporters`, JS-only with a binding qualifier.)
-- 119 tests.
+- 118 tests.
 
 ## 1.3.0 — 2026-06-09
 - **i18n go-to-placeholder.** Cmd+Click an option-object key (`t('k', { price: … })`)
