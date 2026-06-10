@@ -56,17 +56,23 @@ they work regardless of how (or whether) the TS service types the import.
 4. **`styles.` member completion from the module.**
    After `styles.`, the popup shows the **real class names** from the imported
    module (`mobileWrapper`, `container`, …) and suppresses the `any`-typed garbage
-   that tsgo returns.
+   that tsgo returns. Classes pulled in by a Sass `@import` / `@use` / `@forward`
+   (including via the `@/` tsconfig alias, transitively) are included too.
    → `CssModuleStylesCompletion`
 
 5. **"Unknown CSS class" inspection (JS/TS side).**
    `styles.doesNotExist` is highlighted as an error when the class is not defined
-   in the imported module.
+   in the imported module. A class defined only in an `@import`-ed module is
+   recognised (not flagged), since Sass inlines it into the importing module's
+   `styles`.
    → `CssModuleUnknownClassInspection`
 
 6. **"Unused CSS class" inspection (CSS side).**
    A class declared in a `*.module.scss` that is never referenced as
-   `styles.<class>` in any importing file is greyed out as unused.
+   `styles.<class>` in any importing file is greyed out as unused. A class in a
+   shared module that is `@import`-ed elsewhere counts as used when a consumer
+   references it through the chain, so it is not falsely greyed; genuinely dead
+   classes are still flagged.
    → `CssModuleUnusedClassInspection`
 
 ### i18n translation keys (`react-i18next`)
@@ -145,6 +151,14 @@ The heart of the resolution logic, all on generic PSI (no TS service):
 - `cssModuleBindings(jsFile)` → `{ "styles" -> {class names} }` for every CSS
   module imported in a JS/TS file.
 - `collectClassNames(moduleFile)` → all `CssClass` names in a module.
+- `scssImportPaths(text)` / `resolveImportPath(dir, project, path)` -> parse a
+  module's `@import`/`@use`/`@forward` targets and resolve them (relative + `@/`
+  tsconfig alias, via `tsconfigAliases`).
+- `collectAllClassNames(moduleFile)` -> own classes plus every transitively
+  `@import`-ed module's classes (cycle-safe, cached).
+- `moduleImportGraph(project)` / `modulesTransitivelyImporting(moduleFile)` ->
+  the CSS-module import graph and reverse reachability, used by the unused-class
+  inspection to see usage through `@import` chains.
 - `findImporters(moduleFile)` → files that import a module + the local binding
   name each uses.
 - `collectUsedClassNames(moduleFile)` → class names actually referenced as
@@ -255,7 +269,7 @@ read logs:
 ## Tests
 
 The suite runs the real IntelliJ engine against the locally-installed WebStorm SDK
-on in-memory `BasePlatformTestCase` fixtures (no mocks). 96 tests, all green.
+on in-memory `BasePlatformTestCase` fixtures (no mocks). 118 tests, all green.
 
 ```bash
 JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
@@ -315,6 +329,8 @@ and helpers return empty. Verify in a throwaway test with
 | `I18nOptionsCompletionTest` | completing the `t(key, { … })` object with placeholder names |
 | `I18nKeyFindUsagesTest` | Find Usages on a key property → only the resolving code refs (cross-locale filtered) |
 | `I18nPlaceholderNavigationTest` | Cmd+Click an option key → caret on the `{{placeholder}}` in the value |
+| `CssScssImportLogicTest` | pure: SCSS `@import`/`@use`/`@forward` path parsing + tsconfig alias parsing |
+| `CssScssImportPsiTest` | import path resolution (relative + `@/` alias), transitive `collectAllClassNames`, module import graph + reverse reachability |
 
 > **JSX PSI note:** in a `.tsx`, a `<Trans/>` element is itself a `JSLiteralExpression`
 > subtype (`JSXXmlLiteralExpression`), and the `i18nKey` value is an `XmlAttributeValue`

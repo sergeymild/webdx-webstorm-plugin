@@ -15,6 +15,17 @@ Build a distributable zip: `./gradlew buildPlugin` → `build/distributions/webd
 `BasePlatformTestCase`). All features resolve from source files, so they work on the
 tsgo engine where the TS language service doesn't load plugins.
 
+## 1.4.0 — 2026-06-10
+- **CSS Modules: follow Sass `@import`.** Classes Sass inlines into a module via
+  `@import` / `@use` / `@forward` (relative paths and the `@/` tsconfig alias,
+  transitively) now count as the module's own: `styles.<imported>` completes, is
+  not flagged unknown, and — on the imported file — is not greyed as unused when a
+  consumer references it through the chain. Real dead code in a shared file is still
+  flagged. (`CssModules.scssImportPaths`/`tsconfigAliases`/`resolveImportPath`/
+  `collectAllClassNames`/`moduleImportGraph`/`modulesTransitivelyImporting`, widened
+  `collectUsedClassNames`.)
+- 118 tests.
+
 ## 1.3.0 — 2026-06-09
 - **i18n go-to-placeholder.** Cmd+Click an option-object key (`t('k', { price: … })`)
   jumps into the locale JSON with the caret on the matching `{{price}}` inside the
