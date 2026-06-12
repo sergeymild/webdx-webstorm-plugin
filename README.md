@@ -311,7 +311,21 @@ depend on that — they read the `.module.scss` directly.
 
 ## Build
 
-Requires JDK 21 and WebStorm installed at `/Applications/WebStorm.app`.
+### Requirements
+
+| Component | Version / path |
+|---|---|
+| JDK | 21 (e.g. `/opt/homebrew/opt/openjdk@21` on macOS) |
+| WebStorm | installed locally, default `/Applications/WebStorm.app` |
+| Gradle | use the bundled wrapper `./gradlew` (no separate install) |
+
+The build compiles against the **locally-installed WebStorm**
+(`local("/Applications/WebStorm.app")` in `build.gradle.kts`), so no multi-GB SDK
+is downloaded. If WebStorm lives elsewhere, adjust that path.
+
+### Build the plugin
+
+From the repo root:
 
 ```bash
 JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
@@ -321,16 +335,29 @@ JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
 Output: `build/distributions/webdx-<version>.zip` (the `buildPlugin` task deletes
 older `*.zip` in `build/distributions` first).
 
-On a different machine: install JDK 21 + WebStorm 2026.1, adjust the
-`local(...)` path in `build.gradle.kts` if WebStorm lives elsewhere, then run the
-same command. If the WebStorm build differs, the bundled Kotlin metadata version
-may change — bump `kotlin("jvm")` to match (see gotcha #6).
+### On a different machine
+
+1. Install JDK 21 + WebStorm 2026.1.
+2. If WebStorm isn't at `/Applications/WebStorm.app`, adjust the `local(...)` path
+   in `build.gradle.kts`.
+3. Run the same build command.
+
+If the WebStorm build differs, the bundled Kotlin metadata version may change —
+bump `kotlin("jvm")` to match (currently **2.3.0**; see gotcha #6).
 
 ## Install
 
-WebStorm → **Settings → Plugins → ⚙ → Install Plugin from Disk…** → pick the zip
-→ **Restart**. Bump the `version` in `build.gradle.kts` between iterations so you
-can tell the new build apart.
+1. WebStorm → **Settings → Plugins**.
+2. Gear icon **⚙ → Install Plugin from Disk…**
+3. Pick the built `build/distributions/webdx-<version>.zip`.
+4. **Restart** the IDE.
+
+### Update to a new build
+
+1. Bump the `version` in `build.gradle.kts` (e.g. `1.6.0` → `1.6.1`) so you can
+   tell the new build apart.
+2. Rebuild (`./gradlew clean buildPlugin`).
+3. Install the new zip the same way (**Install Plugin from Disk…**) and restart.
 
 ## Debug during development
 
