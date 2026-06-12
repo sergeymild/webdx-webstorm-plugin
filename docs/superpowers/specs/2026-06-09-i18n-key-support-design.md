@@ -5,7 +5,7 @@
 
 ## Проблема
 
-В проекте `intch/web` используется `react-i18next`. Ключи переводов — это
+В проекте `WebDX/web` используется `react-i18next`. Ключи переводов — это
 точечные пути в большой вложенный JSON (`src/lang/translations/en.json`,
 ~6965 строк, ~375 КБ). Из-за размера и глубины написать типы на TypeScript
 нереально, поэтому в `t('...')` нет ни автокомплита, ни проверки ключей.
@@ -83,7 +83,7 @@ lookup-элементы (английское значение в tail text) —
 
 ### 5. Упаковка и тесты
 
-- Новый пакет `com.intch.i18n`, регистрация в `plugin.xml`
+- Новый пакет `com.webdx.i18n`, регистрация в `plugin.xml`
   (`psi.referenceContributor`, `localInspection`, project service). Существующий
   CSS-код не трогаем. Bump версии.
 - Имя плагина пока остаётся «CSS Modules Scoped Usages» (id не меняем); по факту

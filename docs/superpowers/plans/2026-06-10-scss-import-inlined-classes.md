@@ -11,22 +11,22 @@
 **Spec:** `docs/superpowers/specs/2026-06-10-scss-import-inlined-classes-design.md`
 
 **Run tests:** `JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home ./gradlew test`
-(abbreviated below as `./gradlew test`). A single class: `./gradlew test --tests "com.intch.cssmodules.CssScssImportLogicTest"`.
+(abbreviated below as `./gradlew test`). A single class: `./gradlew test --tests "com.webdx.cssmodules.CssScssImportLogicTest"`.
 
 ---
 
 ## Task 1: Pure SCSS-import path parser
 
 **Files:**
-- Modify: `src/main/kotlin/com/intch/cssmodules/CssModuleShared.kt`
-- Test: `src/test/kotlin/com/intch/cssmodules/CssScssImportLogicTest.kt` (create)
+- Modify: `src/main/kotlin/com/webdx/cssmodules/CssModuleShared.kt`
+- Test: `src/test/kotlin/com/webdx/cssmodules/CssScssImportLogicTest.kt` (create)
 
 - [ ] **Step 1: Write the failing tests**
 
-Create `src/test/kotlin/com/intch/cssmodules/CssScssImportLogicTest.kt`:
+Create `src/test/kotlin/com/webdx/cssmodules/CssScssImportLogicTest.kt`:
 
 ```kotlin
-package com.intch.cssmodules
+package com.webdx.cssmodules
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -78,7 +78,7 @@ class CssScssImportLogicTest {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `./gradlew test --tests "com.intch.cssmodules.CssScssImportLogicTest"`
+Run: `./gradlew test --tests "com.webdx.cssmodules.CssScssImportLogicTest"`
 Expected: FAIL — `scssImportPaths` is unresolved (compile error).
 
 - [ ] **Step 3: Implement `scssImportPaths`**
@@ -98,13 +98,13 @@ In `CssModuleShared.kt`, inside `object CssModules`, add (place it near `isModul
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `./gradlew test --tests "com.intch.cssmodules.CssScssImportLogicTest"`
+Run: `./gradlew test --tests "com.webdx.cssmodules.CssScssImportLogicTest"`
 Expected: PASS (5 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/main/kotlin/com/intch/cssmodules/CssModuleShared.kt src/test/kotlin/com/intch/cssmodules/CssScssImportLogicTest.kt
+git add src/main/kotlin/com/webdx/cssmodules/CssModuleShared.kt src/test/kotlin/com/webdx/cssmodules/CssScssImportLogicTest.kt
 git commit -m "feat(css): parse @import/@use/@forward paths from SCSS text"
 ```
 
@@ -113,8 +113,8 @@ git commit -m "feat(css): parse @import/@use/@forward paths from SCSS text"
 ## Task 2: Pure tsconfig path-alias parser
 
 **Files:**
-- Modify: `src/main/kotlin/com/intch/cssmodules/CssModuleShared.kt`
-- Test: `src/test/kotlin/com/intch/cssmodules/CssScssImportLogicTest.kt`
+- Modify: `src/main/kotlin/com/webdx/cssmodules/CssModuleShared.kt`
+- Test: `src/test/kotlin/com/webdx/cssmodules/CssScssImportLogicTest.kt`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -149,7 +149,7 @@ Append to `CssScssImportLogicTest.kt` (inside the class):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `./gradlew test --tests "com.intch.cssmodules.CssScssImportLogicTest"`
+Run: `./gradlew test --tests "com.webdx.cssmodules.CssScssImportLogicTest"`
 Expected: FAIL — `tsconfigAliases` / `TsconfigAliases` unresolved.
 
 - [ ] **Step 3: Implement the parser**
@@ -189,13 +189,13 @@ And inside `object CssModules`:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `./gradlew test --tests "com.intch.cssmodules.CssScssImportLogicTest"`
+Run: `./gradlew test --tests "com.webdx.cssmodules.CssScssImportLogicTest"`
 Expected: PASS (8 tests total).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/main/kotlin/com/intch/cssmodules/CssModuleShared.kt src/test/kotlin/com/intch/cssmodules/CssScssImportLogicTest.kt
+git add src/main/kotlin/com/webdx/cssmodules/CssModuleShared.kt src/test/kotlin/com/webdx/cssmodules/CssScssImportLogicTest.kt
 git commit -m "feat(css): parse tsconfig baseUrl + path aliases"
 ```
 
@@ -204,15 +204,15 @@ git commit -m "feat(css): parse tsconfig baseUrl + path aliases"
 ## Task 3: Resolve a SCSS import path (relative + `@/` alias)
 
 **Files:**
-- Modify: `src/main/kotlin/com/intch/cssmodules/CssModuleShared.kt`
-- Test: `src/test/kotlin/com/intch/cssmodules/CssScssImportPsiTest.kt` (create)
+- Modify: `src/main/kotlin/com/webdx/cssmodules/CssModuleShared.kt`
+- Test: `src/test/kotlin/com/webdx/cssmodules/CssScssImportPsiTest.kt` (create)
 
 - [ ] **Step 1: Write the failing tests**
 
-Create `src/test/kotlin/com/intch/cssmodules/CssScssImportPsiTest.kt`:
+Create `src/test/kotlin/com/webdx/cssmodules/CssScssImportPsiTest.kt`:
 
 ```kotlin
-package com.intch.cssmodules
+package com.webdx.cssmodules
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
@@ -257,7 +257,7 @@ class CssScssImportPsiTest : BasePlatformTestCase() {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `./gradlew test --tests "com.intch.cssmodules.CssScssImportPsiTest"`
+Run: `./gradlew test --tests "com.webdx.cssmodules.CssScssImportPsiTest"`
 Expected: FAIL — `resolveImportPath` unresolved.
 
 - [ ] **Step 3: Implement `resolveImportPath` + alias resolution**
@@ -323,13 +323,13 @@ Note: `resolveRelative` already exists and is `private` in `CssModules` — reus
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `./gradlew test --tests "com.intch.cssmodules.CssScssImportPsiTest"`
+Run: `./gradlew test --tests "com.webdx.cssmodules.CssScssImportPsiTest"`
 Expected: PASS (4 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/main/kotlin/com/intch/cssmodules/CssModuleShared.kt src/test/kotlin/com/intch/cssmodules/CssScssImportPsiTest.kt
+git add src/main/kotlin/com/webdx/cssmodules/CssModuleShared.kt src/test/kotlin/com/webdx/cssmodules/CssScssImportPsiTest.kt
 git commit -m "feat(css): resolve relative + @/ alias SCSS import paths"
 ```
 
@@ -338,8 +338,8 @@ git commit -m "feat(css): resolve relative + @/ alias SCSS import paths"
 ## Task 4: Transitive class collection (`directModuleImports` + `collectAllClassNames`)
 
 **Files:**
-- Modify: `src/main/kotlin/com/intch/cssmodules/CssModuleShared.kt`
-- Test: `src/test/kotlin/com/intch/cssmodules/CssScssImportPsiTest.kt`
+- Modify: `src/main/kotlin/com/webdx/cssmodules/CssModuleShared.kt`
+- Test: `src/test/kotlin/com/webdx/cssmodules/CssScssImportPsiTest.kt`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -382,7 +382,7 @@ Append to `CssScssImportPsiTest.kt` (inside the class):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `./gradlew test --tests "com.intch.cssmodules.CssScssImportPsiTest"`
+Run: `./gradlew test --tests "com.webdx.cssmodules.CssScssImportPsiTest"`
 Expected: FAIL — `collectAllClassNames` unresolved.
 
 - [ ] **Step 3: Implement the collectors**
@@ -428,13 +428,13 @@ Inside `object CssModules`, add:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `./gradlew test --tests "com.intch.cssmodules.CssScssImportPsiTest"`
+Run: `./gradlew test --tests "com.webdx.cssmodules.CssScssImportPsiTest"`
 Expected: PASS (8 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/main/kotlin/com/intch/cssmodules/CssModuleShared.kt src/test/kotlin/com/intch/cssmodules/CssScssImportPsiTest.kt
+git add src/main/kotlin/com/webdx/cssmodules/CssModuleShared.kt src/test/kotlin/com/webdx/cssmodules/CssScssImportPsiTest.kt
 git commit -m "feat(css): collect transitively imported CSS-module class names"
 ```
 
@@ -443,9 +443,9 @@ git commit -m "feat(css): collect transitively imported CSS-module class names"
 ## Task 5: Wire completion + unknown-class inspection to imported classes
 
 **Files:**
-- Modify: `src/main/kotlin/com/intch/cssmodules/CssModuleStylesCompletion.kt:58`
-- Modify: `src/main/kotlin/com/intch/cssmodules/CssModuleShared.kt` (`cssModuleBindings`, line ~66)
-- Test: `src/test/kotlin/com/intch/cssmodules/CssModuleCompletionTest.kt`, `src/test/kotlin/com/intch/cssmodules/CssModuleInspectionTest.kt`
+- Modify: `src/main/kotlin/com/webdx/cssmodules/CssModuleStylesCompletion.kt:58`
+- Modify: `src/main/kotlin/com/webdx/cssmodules/CssModuleShared.kt` (`cssModuleBindings`, line ~66)
+- Test: `src/test/kotlin/com/webdx/cssmodules/CssModuleCompletionTest.kt`, `src/test/kotlin/com/webdx/cssmodules/CssModuleInspectionTest.kt`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -506,7 +506,7 @@ Append to `CssModuleInspectionTest.kt` (inside the class, in the "Unknown CSS mo
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `./gradlew test --tests "com.intch.cssmodules.CssModuleCompletionTest" --tests "com.intch.cssmodules.CssModuleInspectionTest"`
+Run: `./gradlew test --tests "com.webdx.cssmodules.CssModuleCompletionTest" --tests "com.webdx.cssmodules.CssModuleInspectionTest"`
 Expected: FAIL — imported classes neither completed nor recognised (still using own-only `collectClassNames`).
 
 - [ ] **Step 3: Switch both consumers to `collectAllClassNames`**
@@ -529,13 +529,13 @@ In `CssModuleStylesCompletion.kt`, in `fillMemberCompletion`, change:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `./gradlew test --tests "com.intch.cssmodules.CssModuleCompletionTest" --tests "com.intch.cssmodules.CssModuleInspectionTest"`
+Run: `./gradlew test --tests "com.webdx.cssmodules.CssModuleCompletionTest" --tests "com.webdx.cssmodules.CssModuleInspectionTest"`
 Expected: PASS (all existing + 2 new).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/main/kotlin/com/intch/cssmodules/CssModuleShared.kt src/main/kotlin/com/intch/cssmodules/CssModuleStylesCompletion.kt src/test/kotlin/com/intch/cssmodules/CssModuleCompletionTest.kt src/test/kotlin/com/intch/cssmodules/CssModuleInspectionTest.kt
+git add src/main/kotlin/com/webdx/cssmodules/CssModuleShared.kt src/main/kotlin/com/webdx/cssmodules/CssModuleStylesCompletion.kt src/test/kotlin/com/webdx/cssmodules/CssModuleCompletionTest.kt src/test/kotlin/com/webdx/cssmodules/CssModuleInspectionTest.kt
 git commit -m "feat(css): complete & accept @import-inlined classes in styles.*"
 ```
 
@@ -544,8 +544,8 @@ git commit -m "feat(css): complete & accept @import-inlined classes in styles.*"
 ## Task 6: Module-import graph + reverse reachability
 
 **Files:**
-- Modify: `src/main/kotlin/com/intch/cssmodules/CssModuleShared.kt`
-- Test: `src/test/kotlin/com/intch/cssmodules/CssScssImportPsiTest.kt`
+- Modify: `src/main/kotlin/com/webdx/cssmodules/CssModuleShared.kt`
+- Test: `src/test/kotlin/com/webdx/cssmodules/CssScssImportPsiTest.kt`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -575,7 +575,7 @@ Append to `CssScssImportPsiTest.kt` (inside the class):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `./gradlew test --tests "com.intch.cssmodules.CssScssImportPsiTest"`
+Run: `./gradlew test --tests "com.webdx.cssmodules.CssScssImportPsiTest"`
 Expected: FAIL — `modulesTransitivelyImporting` unresolved.
 
 - [ ] **Step 3: Implement the graph + reverse reachability**
@@ -629,13 +629,13 @@ Inside `object CssModules`, add:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `./gradlew test --tests "com.intch.cssmodules.CssScssImportPsiTest"`
+Run: `./gradlew test --tests "com.webdx.cssmodules.CssScssImportPsiTest"`
 Expected: PASS (10 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/main/kotlin/com/intch/cssmodules/CssModuleShared.kt src/test/kotlin/com/intch/cssmodules/CssScssImportPsiTest.kt
+git add src/main/kotlin/com/webdx/cssmodules/CssModuleShared.kt src/test/kotlin/com/webdx/cssmodules/CssScssImportPsiTest.kt
 git commit -m "feat(css): build CSS-module import graph + reverse reachability"
 ```
 
@@ -644,9 +644,9 @@ git commit -m "feat(css): build CSS-module import graph + reverse reachability"
 ## Task 7: Widen the unused-class inspection for inlined classes
 
 **Files:**
-- Modify: `src/main/kotlin/com/intch/cssmodules/CssModuleShared.kt` (`collectUsedClassNames` + new `hasConsumingImporter`)
-- Modify: `src/main/kotlin/com/intch/cssmodules/CssModuleUnusedClassInspection.kt:20-22`
-- Test: `src/test/kotlin/com/intch/cssmodules/CssModuleInspectionTest.kt`
+- Modify: `src/main/kotlin/com/webdx/cssmodules/CssModuleShared.kt` (`collectUsedClassNames` + new `hasConsumingImporter`)
+- Modify: `src/main/kotlin/com/webdx/cssmodules/CssModuleUnusedClassInspection.kt:20-22`
+- Test: `src/test/kotlin/com/webdx/cssmodules/CssModuleInspectionTest.kt`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -684,7 +684,7 @@ Append to `CssModuleInspectionTest.kt` (inside the class, in the "Unused" sectio
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `./gradlew test --tests "com.intch.cssmodules.CssModuleInspectionTest"`
+Run: `./gradlew test --tests "com.webdx.cssmodules.CssModuleInspectionTest"`
 Expected: FAIL — `'shared'` is flagged unused (current `collectUsedClassNames` finds no JS importer of `common`).
 
 - [ ] **Step 3: Rewrite `collectUsedClassNames` + add `hasConsumingImporter`; update the guard**
@@ -738,13 +738,13 @@ In `CssModuleUnusedClassInspection.kt`, replace the importer guard (lines ~20-22
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `./gradlew test --tests "com.intch.cssmodules.CssModuleInspectionTest"`
+Run: `./gradlew test --tests "com.webdx.cssmodules.CssModuleInspectionTest"`
 Expected: PASS (existing unused/unknown tests + the new one). In particular `testNoUnusedReportedWhenNoImporters` still passes (lonely module → `hasConsumingImporter` false → bail), and `testUnusedClassIsReported` still passes.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/main/kotlin/com/intch/cssmodules/CssModuleShared.kt src/main/kotlin/com/intch/cssmodules/CssModuleUnusedClassInspection.kt src/test/kotlin/com/intch/cssmodules/CssModuleInspectionTest.kt
+git add src/main/kotlin/com/webdx/cssmodules/CssModuleShared.kt src/main/kotlin/com/webdx/cssmodules/CssModuleUnusedClassInspection.kt src/test/kotlin/com/webdx/cssmodules/CssModuleInspectionTest.kt
 git commit -m "feat(css): count @import-inlined class usage across consumers in unused check"
 ```
 

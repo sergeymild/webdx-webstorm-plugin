@@ -1,7 +1,7 @@
 <idea-plugin>
-    <id>com.intch.css-modules-scoped-usages</id>
+    <id>com.webdx.css-modules-scoped-usages</id>
     <name>WebDX</name>
-    <vendor>intch</vendor>
+    <vendor>WebDX</vendor>
 
     <description><![CDATA[
         Developer-experience helpers for a React/TypeScript project, all resolved
@@ -25,27 +25,27 @@
     <extensions defaultExtensionNs="com.intellij">
         <findUsagesHandlerFactory
             order="first"
-            implementation="com.intch.cssmodules.CssModuleFindUsagesHandlerFactory"/>
+            implementation="com.webdx.cssmodules.CssModuleFindUsagesHandlerFactory"/>
         <gotoDeclarationHandler
-            implementation="com.intch.cssmodules.CssModuleGotoDeclarationHandler"/>
+            implementation="com.webdx.cssmodules.CssModuleGotoDeclarationHandler"/>
         <intentionAction>
-            <className>com.intch.cssmodules.CssModuleImportSymbolIntention</className>
+            <className>com.webdx.cssmodules.CssModuleImportSymbolIntention</className>
             <category>CSS</category>
         </intentionAction>
         <lang.directNavigationProvider
-            implementation="com.intch.cssmodules.CssModuleDirectNavigationProvider"/>
-        <postStartupActivity implementation="com.intch.cssmodules.CssScopedStartup"/>
+            implementation="com.webdx.cssmodules.CssModuleDirectNavigationProvider"/>
+        <postStartupActivity implementation="com.webdx.cssmodules.CssScopedStartup"/>
 
         <completion.contributor language="TypeScript JSX" id="cssModStylesTsx" order="first"
-            implementationClass="com.intch.cssmodules.CssModuleStylesCompletion"/>
+            implementationClass="com.webdx.cssmodules.CssModuleStylesCompletion"/>
         <completion.contributor language="TypeScript" id="cssModStylesTs" order="first"
-            implementationClass="com.intch.cssmodules.CssModuleStylesCompletion"/>
+            implementationClass="com.webdx.cssmodules.CssModuleStylesCompletion"/>
         <completion.contributor language="JavaScript" id="cssModStylesJs" order="first"
-            implementationClass="com.intch.cssmodules.CssModuleStylesCompletion"/>
+            implementationClass="com.webdx.cssmodules.CssModuleStylesCompletion"/>
         <completion.contributor language="ECMAScript 6" id="cssModStylesEs6" order="first"
-            implementationClass="com.intch.cssmodules.CssModuleStylesCompletion"/>
+            implementationClass="com.webdx.cssmodules.CssModuleStylesCompletion"/>
         <completion.contributor language="JSX Harmony" id="cssModStylesJsx" order="first"
-            implementationClass="com.intch.cssmodules.CssModuleStylesCompletion"/>
+            implementationClass="com.webdx.cssmodules.CssModuleStylesCompletion"/>
 
         <localInspection language="SCSS"
             shortName="CssModuleUnusedClass"
@@ -53,28 +53,28 @@
             groupName="CSS"
             enabledByDefault="true"
             level="WARNING"
-            implementationClass="com.intch.cssmodules.CssModuleUnusedClassInspection"/>
+            implementationClass="com.webdx.cssmodules.CssModuleUnusedClassInspection"/>
         <localInspection language="SASS"
             shortName="CssModuleUnusedClassSass"
             displayName="Unused CSS module class"
             groupName="CSS"
             enabledByDefault="true"
             level="WARNING"
-            implementationClass="com.intch.cssmodules.CssModuleUnusedClassInspection"/>
+            implementationClass="com.webdx.cssmodules.CssModuleUnusedClassInspection"/>
         <localInspection language="LESS"
             shortName="CssModuleUnusedClassLess"
             displayName="Unused CSS module class"
             groupName="CSS"
             enabledByDefault="true"
             level="WARNING"
-            implementationClass="com.intch.cssmodules.CssModuleUnusedClassInspection"/>
+            implementationClass="com.webdx.cssmodules.CssModuleUnusedClassInspection"/>
         <localInspection language="CSS"
             shortName="CssModuleUnusedClassCss"
             displayName="Unused CSS module class"
             groupName="CSS"
             enabledByDefault="true"
             level="WARNING"
-            implementationClass="com.intch.cssmodules.CssModuleUnusedClassInspection"/>
+            implementationClass="com.webdx.cssmodules.CssModuleUnusedClassInspection"/>
 
         <!-- Register once on CSS only: SCSS/SASS/LESS are dialects of CSS, so a single
              CSS registration matches each file exactly once. Registering per-dialect
@@ -83,117 +83,117 @@
             shortName="CssModuleOverrideClass"
             displayName="CSS module class overrides imported class"
             groupName="CSS" enabledByDefault="true" level="WARNING"
-            implementationClass="com.intch.cssmodules.CssModuleOverrideClassInspection"/>
+            implementationClass="com.webdx.cssmodules.CssModuleOverrideClassInspection"/>
 
         <localInspection language="TypeScript JSX"
             shortName="CssModuleUnknownClassTsx"
             displayName="Unknown CSS module class"
             groupName="CSS" enabledByDefault="true" level="ERROR"
-            implementationClass="com.intch.cssmodules.CssModuleUnknownClassInspection"/>
+            implementationClass="com.webdx.cssmodules.CssModuleUnknownClassInspection"/>
         <localInspection language="TypeScript"
             shortName="CssModuleUnknownClassTs"
             displayName="Unknown CSS module class"
             groupName="CSS" enabledByDefault="true" level="ERROR"
-            implementationClass="com.intch.cssmodules.CssModuleUnknownClassInspection"/>
+            implementationClass="com.webdx.cssmodules.CssModuleUnknownClassInspection"/>
         <localInspection language="JavaScript"
             shortName="CssModuleUnknownClassJs"
             displayName="Unknown CSS module class"
             groupName="CSS" enabledByDefault="true" level="ERROR"
-            implementationClass="com.intch.cssmodules.CssModuleUnknownClassInspection"/>
+            implementationClass="com.webdx.cssmodules.CssModuleUnknownClassInspection"/>
         <localInspection language="ECMAScript 6"
             shortName="CssModuleUnknownClassEs6"
             displayName="Unknown CSS module class"
             groupName="CSS" enabledByDefault="true" level="ERROR"
-            implementationClass="com.intch.cssmodules.CssModuleUnknownClassInspection"/>
+            implementationClass="com.webdx.cssmodules.CssModuleUnknownClassInspection"/>
         <localInspection language="JSX Harmony"
             shortName="CssModuleUnknownClassJsx"
             displayName="Unknown CSS module class"
             groupName="CSS" enabledByDefault="true" level="ERROR"
-            implementationClass="com.intch.cssmodules.CssModuleUnknownClassInspection"/>
+            implementationClass="com.webdx.cssmodules.CssModuleUnknownClassInspection"/>
     </extensions>
 
     <extensions defaultExtensionNs="JavaScript">
         <importCandidatesFactory
-            implementation="com.intch.cssmodules.CssModuleImportCandidatesFactory"/>
+            implementation="com.webdx.cssmodules.CssModuleImportCandidatesFactory"/>
         <importCandidatesFilterFactory
-            implementation="com.intch.cssmodules.CssModuleImportFilterFactory"/>
+            implementation="com.webdx.cssmodules.CssModuleImportFilterFactory"/>
     </extensions>
 
     <!-- i18n: go-to-definition / completion / inspection for react-i18next keys. -->
     <extensions defaultExtensionNs="com.intellij">
         <psi.referenceContributor language="JavaScript"
-            implementation="com.intch.i18n.I18nKeyReferenceContributor"/>
+            implementation="com.webdx.i18n.I18nKeyReferenceContributor"/>
 
         <findUsagesHandlerFactory
             order="first"
-            implementation="com.intch.i18n.I18nKeyFindUsagesHandlerFactory"/>
+            implementation="com.webdx.i18n.I18nKeyFindUsagesHandlerFactory"/>
 
         <localInspection language="TypeScript JSX"
             shortName="I18nUnknownKeyTsx"
             displayName="Unknown i18n translation key"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
-            implementationClass="com.intch.i18n.I18nUnknownKeyInspection"/>
+            implementationClass="com.webdx.i18n.I18nUnknownKeyInspection"/>
         <localInspection language="TypeScript"
             shortName="I18nUnknownKeyTs"
             displayName="Unknown i18n translation key"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
-            implementationClass="com.intch.i18n.I18nUnknownKeyInspection"/>
+            implementationClass="com.webdx.i18n.I18nUnknownKeyInspection"/>
         <localInspection language="JavaScript"
             shortName="I18nUnknownKeyJs"
             displayName="Unknown i18n translation key"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
-            implementationClass="com.intch.i18n.I18nUnknownKeyInspection"/>
+            implementationClass="com.webdx.i18n.I18nUnknownKeyInspection"/>
         <localInspection language="ECMAScript 6"
             shortName="I18nUnknownKeyEs6"
             displayName="Unknown i18n translation key"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
-            implementationClass="com.intch.i18n.I18nUnknownKeyInspection"/>
+            implementationClass="com.webdx.i18n.I18nUnknownKeyInspection"/>
         <localInspection language="JSX Harmony"
             shortName="I18nUnknownKeyJsx"
             displayName="Unknown i18n translation key"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
-            implementationClass="com.intch.i18n.I18nUnknownKeyInspection"/>
+            implementationClass="com.webdx.i18n.I18nUnknownKeyInspection"/>
 
         <localInspection language="TypeScript JSX"
             shortName="I18nInterpolationTsx"
             displayName="i18n interpolation variables"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
-            implementationClass="com.intch.i18n.I18nInterpolationInspection"/>
+            implementationClass="com.webdx.i18n.I18nInterpolationInspection"/>
         <localInspection language="TypeScript"
             shortName="I18nInterpolationTs"
             displayName="i18n interpolation variables"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
-            implementationClass="com.intch.i18n.I18nInterpolationInspection"/>
+            implementationClass="com.webdx.i18n.I18nInterpolationInspection"/>
         <localInspection language="JavaScript"
             shortName="I18nInterpolationJs"
             displayName="i18n interpolation variables"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
-            implementationClass="com.intch.i18n.I18nInterpolationInspection"/>
+            implementationClass="com.webdx.i18n.I18nInterpolationInspection"/>
         <localInspection language="ECMAScript 6"
             shortName="I18nInterpolationEs6"
             displayName="i18n interpolation variables"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
-            implementationClass="com.intch.i18n.I18nInterpolationInspection"/>
+            implementationClass="com.webdx.i18n.I18nInterpolationInspection"/>
         <localInspection language="JSX Harmony"
             shortName="I18nInterpolationJsx"
             displayName="i18n interpolation variables"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
-            implementationClass="com.intch.i18n.I18nInterpolationInspection"/>
+            implementationClass="com.webdx.i18n.I18nInterpolationInspection"/>
 
         <completion.contributor language="TypeScript JSX" order="first"
-            implementationClass="com.intch.i18n.I18nOptionsCompletion"/>
+            implementationClass="com.webdx.i18n.I18nOptionsCompletion"/>
         <completion.contributor language="TypeScript" order="first"
-            implementationClass="com.intch.i18n.I18nOptionsCompletion"/>
+            implementationClass="com.webdx.i18n.I18nOptionsCompletion"/>
         <completion.contributor language="JavaScript" order="first"
-            implementationClass="com.intch.i18n.I18nOptionsCompletion"/>
+            implementationClass="com.webdx.i18n.I18nOptionsCompletion"/>
         <completion.contributor language="ECMAScript 6" order="first"
-            implementationClass="com.intch.i18n.I18nOptionsCompletion"/>
+            implementationClass="com.webdx.i18n.I18nOptionsCompletion"/>
         <completion.contributor language="JSX Harmony" order="first"
-            implementationClass="com.intch.i18n.I18nOptionsCompletion"/>
+            implementationClass="com.webdx.i18n.I18nOptionsCompletion"/>
     </extensions>
 
     <applicationListeners>
-        <listener class="com.intch.cssmodules.CssScopedAppListener"
+        <listener class="com.webdx.cssmodules.CssScopedAppListener"
                   topic="com.intellij.ide.AppLifecycleListener"/>
     </applicationListeners>
 
@@ -201,6 +201,6 @@
         <!-- Override Go to Declaration to intercept styles.<class> (TS-Go bypasses the
              go-to extension points); delegates to default for everything else. -->
         <action id="GotoDeclaration" overrides="true"
-                class="com.intch.cssmodules.CssModuleGotoDeclarationAction"/>
+                class="com.webdx.cssmodules.CssModuleGotoDeclarationAction"/>
     </actions>
 </idea-plugin>

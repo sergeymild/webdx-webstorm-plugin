@@ -16,7 +16,7 @@ Two feature areas:
   go-to-definition + scoped Find Usages on a key, and interpolation tooling
   (option-object completion, checks, and go-to-placeholder) for `t('key', { … })`.
 
-The plugin id stays `com.intch.css-modules-scoped-usages` (kept for update
+The plugin id stays `com.webdx.css-modules-scoped-usages` (kept for update
 continuity); only the display name is **WebDX**.
 
 Built and verified against **WebStorm 2026.1 (build 261)**.
@@ -116,7 +116,7 @@ The project's translations live in a large nested locale JSON
 (`src/lang/translations/en.json`, thousands of dot-path keys) under a single
 `translation` namespace — too big/deep to type in TypeScript. These features give
 key support at the IDE level instead, all reading one cached index of the JSON
-(`com.intch.i18n`). They act on `t('...')`, `i18next.t(...)`, `i18n.t(...)`, and
+(`com.webdx.i18n`). They act on `t('...')`, `i18next.t(...)`, `i18n.t(...)`, and
 `<Trans i18nKey="...">`, only in files that import i18n, and skip dynamic
 template-literal keys (`` t(`a.${x}`) ``).
 
@@ -168,7 +168,7 @@ If detection fails, it falls back to convention (`*/translations/en.json`).
 ## Architecture / where each thing lives
 
 ```
-src/main/kotlin/com/intch/cssmodules/
+src/main/kotlin/com/webdx/cssmodules/
   CssModuleShared.kt                  // shared helpers (CssModules object)
   CssModuleFindUsagesHandlerFactory.kt// feature 1
   CssModuleImportCandidates.kt        // features 2 + 3 (provider + filter)

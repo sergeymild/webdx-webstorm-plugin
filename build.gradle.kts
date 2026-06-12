@@ -5,7 +5,7 @@ plugins {
     id("org.jetbrains.intellij.platform") version "2.6.0"
 }
 
-group = "com.intch"
+group = "com.webdx"
 version = "1.6.0"
 
 repositories {
@@ -54,7 +54,7 @@ tasks.test {
 
 intellijPlatform {
     pluginConfiguration {
-        id = "com.intch.css-modules-scoped-usages"
+        id = "com.webdx.css-modules-scoped-usages"
         name = "WebDX"
         version = project.version.toString()
 

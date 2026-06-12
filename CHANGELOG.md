@@ -2,7 +2,7 @@
 
 History of the WebDX plugin (WebStorm/IntelliJ), so the work can be picked up on
 another machine. Display name **WebDX**; plugin id stays
-`com.intch.css-modules-scoped-usages` (kept for update continuity). Built against the
+`com.webdx.css-modules-scoped-usages` (kept for update continuity). Built against the
 locally-installed WebStorm (`local("/Applications/WebStorm.app")`), Kotlin 2.3.0,
 JDK 21, IntelliJ Platform Gradle Plugin 2.6.0.
 
@@ -163,7 +163,7 @@ tsgo engine where the TS language service doesn't load plugins.
 
 ## 1.1.0 — 2026-06-09
 - **i18n key support (`react-i18next`)**, all reading one cached index of the locale
-  JSON (`com.intch.i18n`): key completion, "unknown translation key" inspection,
+  JSON (`com.webdx.i18n`): key completion, "unknown translation key" inspection,
   go-to-definition + find-usages on a key. The key-source JSON is located from the
   i18n config (the `initReactI18next` file → its `import en from …`), with a
   `*/translations/en.json` convention fallback.
@@ -172,7 +172,7 @@ tsgo engine where the TS language service doesn't load plugins.
 - 69 tests.
 
 ## 1.0.x — earlier
-- **CSS Modules** DX (`com.intch.cssmodules`): scoped Find Usages on a class,
+- **CSS Modules** DX (`com.webdx.cssmodules`): scoped Find Usages on a class,
   sibling-module auto-import (completion-driven, with module-derived binding names),
   `styles.` class-name completion, unknown/unused-class inspections. Plus the initial
   test suite and the documented test-environment setup (bundled plugins the test
