@@ -347,6 +347,34 @@ bump `kotlin("jvm")` to match (currently **2.3.0**; see gotcha #6).
 
 ## Install
 
+### One command (build + install into the local WebStorm)
+
+```bash
+  ./install-to-webstorm.sh
+```
+
+Builds the plugin and unpacks it straight into the installed WebStorm's plugins
+directory — then **just restart WebStorm**. The script:
+
+- auto-detects the newest `WebStorm*` config dir under
+  `~/Library/Application Support/JetBrains/` (no version hardcoded — picks up
+  e.g. `WebStorm2026.2` after an upgrade automatically);
+- runs `./gradlew buildPlugin` and takes the freshest zip from
+  `build/distributions/`;
+- reads the plugin folder name from the zip, removes any previous install, and
+  unpacks the new build into `<config>/plugins/`.
+
+Override the target IDE config dir if auto-detection picks the wrong one:
+
+```bash
+  WEBSTORM_CONFIG_DIR="$HOME/Library/Application Support/JetBrains/WebStorm2026.1" ./install-to-webstorm.sh
+```
+
+> Note: the build itself still compiles against `/Applications/WebStorm.app`
+> (`local(...)` in `build.gradle.kts`); the script only handles deployment.
+
+### Manual (Install Plugin from Disk)
+
 1. WebStorm → **Settings → Plugins**.
 2. Gear icon **⚙ → Install Plugin from Disk…**
 3. Pick the built `build/distributions/webdx-<version>.zip`.
