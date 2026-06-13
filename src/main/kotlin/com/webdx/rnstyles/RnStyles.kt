@@ -21,7 +21,12 @@ internal object RnStyles {
         return out
     }
 
-    /** Parse the inside of destructuring `const { … } = x` braces -> localName -> sourceKeyName. */
+    /**
+     * Parse the inside of destructuring `const { … } = x` braces -> localName -> sourceKeyName.
+     * Handles shorthand, `key: local` rename, default values (`x = 5`), and skips `...rest`.
+     * Known limitation: TypeScript typed-with-default patterns (`x: Type = v`) are not supported —
+     * they do not occur in RN `StyleSheet` destructuring (keys are plain identifiers).
+     */
     fun parseDestructuredEntries(braceContent: String): Map<String, String> {
         val out = LinkedHashMap<String, String>()
         for (raw in braceContent.split(',')) {

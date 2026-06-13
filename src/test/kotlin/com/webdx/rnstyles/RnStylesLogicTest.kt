@@ -27,4 +27,9 @@ class RnStylesLogicTest {
             RnStyles.parseDestructuredEntries("title: t, x = 5, ...rest"),
         )
     }
+
+    @Test fun emptyInputReturnsEmptyMap() {
+        assertEquals(emptyMap<String, String>(), RnStyles.parseNamedImports(""))
+        assertEquals(emptyMap<String, String>(), RnStyles.parseDestructuredEntries(""))
+    }
 }
