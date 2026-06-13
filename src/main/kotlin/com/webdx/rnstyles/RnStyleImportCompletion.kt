@@ -16,7 +16,9 @@ import com.webdx.cssmodules.CssModules
  * sibling file of the same directory; selecting it inserts
  * `import { <binding> } from './<sibling>'` by direct document editing (no TS service).
  * Only offers when a sibling actually exports it and the binding isn't already available
- * in the current file (local const or existing import).
+ * in the current file (local const or existing import). The sibling scan covers every JS/TS file
+ * in the directory (no `*.test`/`*.stories` filtering) — a sibling is only offered if it actually
+ * exports a `StyleSheet.create` binding, so unrelated files are naturally excluded.
  */
 class RnStyleImportCompletion : CompletionContributor() {
 

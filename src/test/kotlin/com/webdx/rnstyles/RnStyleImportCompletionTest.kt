@@ -48,6 +48,18 @@ class RnStyleImportCompletionTest : BasePlatformTestCase() {
         assertFalse("must not offer a styles import without a sibling, got: $items", items.contains("styles"))
     }
 
+    fun testNotOfferedInNonExpressionContext() {
+        myFixture.addFileToProject(
+            "styles.ts",
+            "import { StyleSheet } from 'react-native'\nexport const styles = StyleSheet.create({ row: { flex: 1 } })",
+        )
+        // Caret right after the `import` keyword — an auto-import entry must not be offered here.
+        myFixture.configureByText("About.tsx", "import sty<caret>")
+        myFixture.completeBasic()
+        val items = myFixture.lookupElementStrings ?: emptyList()
+        assertFalse("must not offer an auto-import in a non-expression context, got: $items", items.contains("styles"))
+    }
+
     fun testDoesNotDuplicateExistingImport() {
         myFixture.addFileToProject(
             "styles.ts",
