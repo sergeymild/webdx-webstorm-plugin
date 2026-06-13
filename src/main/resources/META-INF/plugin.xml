@@ -110,6 +110,32 @@
             displayName="Unknown CSS module class"
             groupName="CSS" enabledByDefault="true" level="ERROR"
             implementationClass="com.webdx.cssmodules.CssModuleUnknownClassInspection"/>
+
+        <localInspection language="TypeScript JSX"
+            shortName="RnStyleUnknownKeyTsx"
+            displayName="Unknown React Native style key"
+            groupName="JavaScript" enabledByDefault="true" level="ERROR"
+            implementationClass="com.webdx.rnstyles.RnStyleUnknownKeyInspection"/>
+        <localInspection language="TypeScript"
+            shortName="RnStyleUnknownKeyTs"
+            displayName="Unknown React Native style key"
+            groupName="JavaScript" enabledByDefault="true" level="ERROR"
+            implementationClass="com.webdx.rnstyles.RnStyleUnknownKeyInspection"/>
+        <localInspection language="JavaScript"
+            shortName="RnStyleUnknownKeyJs"
+            displayName="Unknown React Native style key"
+            groupName="JavaScript" enabledByDefault="true" level="ERROR"
+            implementationClass="com.webdx.rnstyles.RnStyleUnknownKeyInspection"/>
+        <localInspection language="ECMAScript 6"
+            shortName="RnStyleUnknownKeyEs6"
+            displayName="Unknown React Native style key"
+            groupName="JavaScript" enabledByDefault="true" level="ERROR"
+            implementationClass="com.webdx.rnstyles.RnStyleUnknownKeyInspection"/>
+        <localInspection language="JSX Harmony"
+            shortName="RnStyleUnknownKeyJsx"
+            displayName="Unknown React Native style key"
+            groupName="JavaScript" enabledByDefault="true" level="ERROR"
+            implementationClass="com.webdx.rnstyles.RnStyleUnknownKeyInspection"/>
     </extensions>
 
     <extensions defaultExtensionNs="JavaScript">
