@@ -160,6 +160,10 @@ internal object RnStyles {
         return out
     }
 
+    /** Exported `StyleSheet.create` bindings in [file] (binding name -> object). */
+    fun exportedStyleSheetBindings(file: PsiFile): Map<String, JSObjectLiteralExpression> =
+        fileStyleSheets(file).filterValues { isExported(it) }
+
     /** True if the StyleSheet object is declared with `export` (so it can be consumed elsewhere). */
     fun isExported(obj: JSObjectLiteralExpression): Boolean {
         val stmt = PsiTreeUtil.getParentOfType(obj, JSVarStatement::class.java) ?: return false

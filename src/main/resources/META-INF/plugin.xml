@@ -50,6 +50,17 @@
         <completion.contributor language="JSX Harmony" id="cssModStylesJsx" order="first"
             implementationClass="com.webdx.cssmodules.CssModuleStylesCompletion"/>
 
+        <completion.contributor language="TypeScript JSX" id="rnStyleImportTsx"
+            implementationClass="com.webdx.rnstyles.RnStyleImportCompletion"/>
+        <completion.contributor language="TypeScript" id="rnStyleImportTs"
+            implementationClass="com.webdx.rnstyles.RnStyleImportCompletion"/>
+        <completion.contributor language="JavaScript" id="rnStyleImportJs"
+            implementationClass="com.webdx.rnstyles.RnStyleImportCompletion"/>
+        <completion.contributor language="ECMAScript 6" id="rnStyleImportEs6"
+            implementationClass="com.webdx.rnstyles.RnStyleImportCompletion"/>
+        <completion.contributor language="JSX Harmony" id="rnStyleImportJsx"
+            implementationClass="com.webdx.rnstyles.RnStyleImportCompletion"/>
+
         <localInspection language="SCSS"
             shortName="CssModuleUnusedClass"
             displayName="Unused CSS module class"

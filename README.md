@@ -16,7 +16,8 @@ Two feature areas:
   go-to-definition + scoped Find Usages on a key, and interpolation tooling
   (option-object completion, checks, and go-to-placeholder) for `t('key', { … })`.
 - **React Native `StyleSheet.create`** — on `styles.<key>` (and `const { key } = styles`):
-  go-to the key declaration, scoped Find Usages, unknown-key and unused-key inspections.
+  go-to the key declaration, scoped Find Usages, unknown-key and unused-key inspections,
+  plus sibling auto-import of `styles`.
   Source-resolved (no TS service); covers inline and exported+imported style objects.
 
 The plugin id stays `com.webdx.css-modules-scoped-usages` (kept for update
@@ -191,6 +192,12 @@ behave correctly where the service treats `styles.<key>` as an untyped member.
 15. **"Unused style key" inspection.** A key never referenced (`<binding>.<key>` or via
     destructuring) in its scope is greyed as unused.
     → `RnStyleUnusedKeyInspection`
+
+16. **Sibling auto-import (completion).** Typing `styles` offers an entry to
+    `import { styles } from './styles'` when a sibling file in the same folder exports a
+    `StyleSheet.create` binding of that name — inserted by direct document editing (no TS service),
+    and only when no such binding is already available in the file.
+    → `RnStyleImportCompletion`
 
 ---
 

@@ -31,6 +31,9 @@ tsgo engine where the TS language service doesn't load plugins.
   default-export styles (none exist in the target codebase).
   (`RnStyles`, `RnStyleUnknownKeyInspection`, `RnStyleUnusedKeyInspection`,
   `RnStyleFindUsagesHandlerFactory`.)
+- Plus **sibling auto-import**: typing `styles` offers an entry to `import { styles } from './styles'`
+  from a sibling file in the same folder that exports a `StyleSheet.create` binding (only when such a
+  sibling exists and the binding isn't already available). (`RnStyleImportCompletion`.)
 
 ## 1.6.0 — 2026-06-10
 - **New Alt+Enter intention: add `@import` for a name-resolved SCSS symbol.** When a
