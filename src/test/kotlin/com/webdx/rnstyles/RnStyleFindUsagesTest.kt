@@ -3,6 +3,7 @@ package com.webdx.rnstyles
 import com.intellij.lang.javascript.psi.JSProperty
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.usageView.UsageInfo
 
 /** Scoped Find Usages on a `StyleSheet.create` key. */
 class RnStyleFindUsagesTest : BasePlatformTestCase() {
@@ -32,6 +33,36 @@ class RnStyleFindUsagesTest : BasePlatformTestCase() {
         )
         val usages = myFixture.findUsages(keyPropAtCaret())
         assertEquals("usages: ${usages.map { it.element?.text }}", 1, usages.size)
+    }
+
+    fun testFindUsagesFromUsageSiteViaFactory() {
+        // Invoke from a `styles.foo` USAGE leaf (not the declaration): canFindUsages must accept it
+        // (resolving via RnStyles.resolveKeyProperty) and the handler must return the scoped usages.
+        myFixture.configureByText(
+            "Comp.tsx",
+            "import { StyleSheet } from 'react-native'\n" +
+                "const styles = StyleSheet.create({ foo: { flex: 1 } })\n" +
+                "const a = styles.fo<caret>o\nconst b = styles.foo",
+        )
+        val el = myFixture.file.findElementAt(myFixture.caretOffset)!!
+        val factory = RnStyleFindUsagesHandlerFactory()
+        assertTrue("canFindUsages should accept a styles.<key> usage leaf", factory.canFindUsages(el))
+        val handler = factory.createFindUsagesHandler(el, false)
+        val usages = mutableListOf<UsageInfo>()
+        handler.processElementUsages(handler.psiElement, { usages.add(it); true }, handler.findUsagesOptions)
+        assertEquals("scoped usages from a usage-site invocation", 2, usages.size)
+    }
+
+    fun testChainedAccessNotReported() {
+        myFixture.configureByText(
+            "Comp.tsx",
+            "import { StyleSheet } from 'react-native'\n" +
+                "const styles = StyleSheet.create({ fo<caret>o: { flex: 1 } })\n" +
+                "const theme = { styles }\n" +
+                "const a = styles.foo\nconst b = theme.styles.foo",
+        )
+        val usages = myFixture.findUsages(keyPropAtCaret())
+        assertEquals("only direct styles.foo, not theme.styles.foo: ${usages.map { it.element?.text }}", 1, usages.size)
     }
 
     fun testExportedKeyScopedToImporters() {

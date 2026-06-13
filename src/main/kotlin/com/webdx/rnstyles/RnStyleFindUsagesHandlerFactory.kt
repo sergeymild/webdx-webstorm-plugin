@@ -26,8 +26,10 @@ class RnStyleFindUsagesHandlerFactory : FindUsagesHandlerFactory() {
     override fun canFindUsages(element: PsiElement): Boolean = targetProperty(element) != null
 
     override fun createFindUsagesHandler(element: PsiElement, forHighlightUsages: Boolean): FindUsagesHandler {
-        val prop = targetProperty(element)!!
+        // The platform only calls this after canFindUsages returned true, so targetProperty is non-null.
+        val prop = requireNotNull(targetProperty(element)) { "createFindUsagesHandler called without a style-key target" }
         return object : FindUsagesHandler(prop) {
+            // Default options; the scoping is done in processElementUsages. Kept as an explicit hook.
             override fun getFindUsagesOptions(dataContext: com.intellij.openapi.actionSystem.DataContext?): FindUsagesOptions =
                 super.getFindUsagesOptions(dataContext)
 
