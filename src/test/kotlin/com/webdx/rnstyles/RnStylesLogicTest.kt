@@ -32,4 +32,16 @@ class RnStylesLogicTest {
         assertEquals(emptyMap<String, String>(), RnStyles.parseNamedImports(""))
         assertEquals(emptyMap<String, String>(), RnStyles.parseDestructuredEntries(""))
     }
+
+    @Test fun namedImportRegexMatchesSingleAndMultiLine() {
+        val single = "import { styles } from './styles'"
+        val m1 = RnStyles.NAMED_IMPORT.find(single)
+        assertEquals("styles", RnStyles.parseNamedImports(m1!!.groupValues[1]).keys.single())
+        assertEquals("./styles", m1.groupValues[2])
+
+        val multi = "import {\n  styles,\n  tokens,\n} from './theme'"
+        val m2 = RnStyles.NAMED_IMPORT.find(multi)
+        assertEquals(setOf("styles", "tokens"), RnStyles.parseNamedImports(m2!!.groupValues[1]).keys)
+        assertEquals("./theme", m2.groupValues[2])
+    }
 }

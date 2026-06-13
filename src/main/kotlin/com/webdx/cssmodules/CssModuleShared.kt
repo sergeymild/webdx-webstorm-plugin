@@ -211,6 +211,9 @@ internal object CssModules {
 
     private val CSS_EXTS = listOf("scss", "sass", "less", "css")
 
+    /** JS/TS source extensions, used for extensionless import resolution. */
+    val JS_EXTS = listOf("ts", "tsx", "js", "jsx", "mts", "cts", "mjs", "cjs")
+
     /** Forward graph over all CSS-module files: file -> the CSS-module files it directly imports. */
     fun moduleImportGraph(project: Project): Map<VirtualFile, Set<VirtualFile>> =
         CachedValuesManager.getManager(project).getCachedValue(project) {

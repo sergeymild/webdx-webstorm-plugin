@@ -85,21 +85,19 @@ internal object RnStyles {
         return out
     }
 
-    private val JS_EXTS = listOf("ts", "tsx", "js", "jsx", "mts", "cts", "mjs", "cjs")
-
     internal val NAMED_IMPORT = Regex("""import\s*\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]""")
 
     /** Resolve a JS/TS import [path] (extensionless allowed) to a VirtualFile. */
     fun resolveJsImport(fromDir: VirtualFile, project: Project, path: String): VirtualFile? {
         CssModules.resolveImportPath(fromDir, project, path)?.let { if (!it.isDirectory) return it }
-        for (ext in JS_EXTS) CssModules.resolveImportPath(fromDir, project, "$path.$ext")?.let { return it }
-        for (ext in JS_EXTS) CssModules.resolveImportPath(fromDir, project, "$path/index.$ext")?.let { return it }
+        for (ext in CssModules.JS_EXTS) CssModules.resolveImportPath(fromDir, project, "$path.$ext")?.let { return it }
+        for (ext in CssModules.JS_EXTS) CssModules.resolveImportPath(fromDir, project, "$path/index.$ext")?.let { return it }
         return null
     }
 
     /**
      * Resolve qualifier [binding] used in [jsFile] to its StyleSheet object:
-     * a same-file `const <binding> = StyleSheet.create(...)` first, else a named import
+     * any same-file `<binding> = StyleSheet.create(...)` first, else a named import
      * `import { <binding> } from '...'` -> the exported StyleSheet object in the target file.
      */
     fun resolveStyleSheetForBinding(jsFile: PsiFile, binding: String): JSObjectLiteralExpression? {
