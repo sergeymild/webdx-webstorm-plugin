@@ -6,6 +6,7 @@ import com.intellij.lang.javascript.psi.JSProperty
 import com.intellij.lang.javascript.psi.JSVariable
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.util.PsiTreeUtil
@@ -119,5 +120,43 @@ internal object RnStyles {
             return target to orig
         }
         return null
+    }
+
+    private val DESTRUCTURE = Regex("""(?:const|let|var)\s*\{([^}]*)\}\s*=\s*([A-Za-z_$][\w$]*)""")
+
+    /** local name -> (StyleSheet object, source key) for `const { … } = <styles binding>` in [file]. */
+    fun destructuredKeys(file: PsiFile): Map<String, Pair<JSObjectLiteralExpression, String>> {
+        val real = file.originalFile
+        val out = LinkedHashMap<String, Pair<JSObjectLiteralExpression, String>>()
+        for (m in DESTRUCTURE.findAll(real.text)) {
+            val obj = resolveStyleSheetForBinding(real, m.groupValues[2]) ?: continue
+            for ((local, key) in parseDestructuredEntries(m.groupValues[1])) out.putIfAbsent(local, obj to key)
+        }
+        return out
+    }
+
+    /**
+     * Resolve the identifier leaf [element] to the StyleSheet key property it refers to:
+     *  - a `<binding>.<key>` member access, or
+     *  - a local destructured from a StyleSheet object (incl. the destructuring site).
+     * Resolves against `originalFile` (navigation hands a non-physical copy — CSS gotcha #8).
+     */
+    fun resolveKeyProperty(element: PsiElement): JSProperty? {
+        if (element.firstChild != null) return null // leaves only
+        val name = element.text
+        if (name.isEmpty() || !name.first().isJavaIdentifierStart()) return null
+        val file = element.containingFile?.originalFile ?: return null
+        if (!CssModules.isJsLikeFileName(file.name)) return null
+
+        val dot = CssModules.prevMeaningfulLeaf(element)
+        if (dot != null && dot.text == ".") { // Case A: <binding>.<name>
+            val qualifier = CssModules.prevMeaningfulLeaf(dot) ?: return null
+            val obj = resolveStyleSheetForBinding(file, qualifier.text) ?: return null
+            return keyProperty(obj, name)
+        }
+
+        // Case B: a local destructured from a StyleSheet object (incl. the destructuring site)
+        val (obj, key) = destructuredKeys(file)[name] ?: return null
+        return keyProperty(obj, key)
     }
 }
