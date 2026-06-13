@@ -81,4 +81,46 @@ class RnStylesPsiTest : BasePlatformTestCase() {
         val file = myFixture.configureByText("About.tsx", "const x = nope.title")
         assertNull(RnStyles.resolveStyleSheetForBinding(file, "nope"))
     }
+
+    fun testBindingsInFileIncludesLocalAndImported() {
+        myFixture.addFileToProject(
+            "styles.ts",
+            "import { StyleSheet } from 'react-native'\nexport const styles = StyleSheet.create({ title: { fontSize: 16 } })",
+        )
+        val file = myFixture.configureByText(
+            "Comp.tsx",
+            "import { StyleSheet } from 'react-native'\n" +
+                "import { styles } from './styles'\n" +
+                "const local = StyleSheet.create({ row: { flex: 1 } })\n" +
+                "const x = styles.title\nconst y = local.row",
+        )
+        val bindings = RnStyles.bindingsInFile(file)
+        assertEquals(setOf("styles", "local"), bindings.keys)
+        assertEquals(listOf("title"), RnStyles.styleKeys(bindings.getValue("styles")))
+        assertEquals(listOf("row"), RnStyles.styleKeys(bindings.getValue("local")))
+    }
+
+    fun testCollectUsedKeysInline() {
+        val file = myFixture.configureByText(
+            "Comp.tsx",
+            "import { StyleSheet } from 'react-native'\n" +
+                "const styles = StyleSheet.create({ used: { flex: 1 }, dead: { flex: 1 }, viaDestr: { flex: 1 } })\n" +
+                "const { viaDestr } = styles\nconst x = styles.used\nconst y = viaDestr",
+        )
+        val obj = RnStyles.fileStyleSheets(file).getValue("styles")
+        assertEquals(setOf("used", "viaDestr"), RnStyles.collectUsedKeys(obj))
+    }
+
+    fun testCollectUsedKeysExportedViaImporter() {
+        val stylesPsi = myFixture.addFileToProject(
+            "styles.ts",
+            "import { StyleSheet } from 'react-native'\nexport const styles = StyleSheet.create({ used: { flex: 1 }, dead: { flex: 1 } })",
+        )
+        myFixture.addFileToProject(
+            "About.tsx",
+            "import { styles } from './styles'\nconst x = styles.used",
+        )
+        val obj = RnStyles.fileStyleSheets(stylesPsi).getValue("styles")
+        assertEquals(setOf("used"), RnStyles.collectUsedKeys(obj))
+    }
 }

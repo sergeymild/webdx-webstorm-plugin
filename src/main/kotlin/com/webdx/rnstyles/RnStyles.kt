@@ -3,12 +3,16 @@ package com.webdx.rnstyles
 import com.intellij.lang.javascript.psi.JSCallExpression
 import com.intellij.lang.javascript.psi.JSObjectLiteralExpression
 import com.intellij.lang.javascript.psi.JSProperty
+import com.intellij.lang.javascript.psi.JSVarStatement
 import com.intellij.lang.javascript.psi.JSVariable
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
+import com.intellij.psi.search.FilenameIndex
+import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import com.webdx.cssmodules.CssModules
 
@@ -136,6 +140,91 @@ internal object RnStyles {
             for ((local, key) in parseDestructuredEntries(m.groupValues[1])) out.putIfAbsent(local, obj to key)
         }
         return out
+    }
+
+    /** All StyleSheet bindings usable in [file]: local consts + named imports (local name -> object). */
+    fun bindingsInFile(file: PsiFile): Map<String, JSObjectLiteralExpression> {
+        val real = file.originalFile
+        val out = LinkedHashMap<String, JSObjectLiteralExpression>()
+        out.putAll(fileStyleSheets(real))
+        val dir = real.virtualFile?.parent ?: return out
+        val psiManager = PsiManager.getInstance(real.project)
+        for (m in NAMED_IMPORT.findAll(real.text)) {
+            val vf = resolveJsImport(dir, real.project, m.groupValues[2]) ?: continue
+            val target = psiManager.findFile(vf) ?: continue
+            val exported = fileStyleSheets(target)
+            for ((local, orig) in parseNamedImports(m.groupValues[1])) {
+                exported[orig]?.let { out.putIfAbsent(local, it) }
+            }
+        }
+        return out
+    }
+
+    /** True if the StyleSheet object is declared with `export` (so it can be consumed elsewhere). */
+    fun isExported(obj: JSObjectLiteralExpression): Boolean {
+        val stmt = PsiTreeUtil.getParentOfType(obj, JSVarStatement::class.java) ?: return false
+        return stmt.text.trimStart().startsWith("export")
+    }
+
+    /** Files importing [exportName] from [stylesFile], each mapped to the local binding name(s) used. */
+    fun importersForExport(stylesFile: PsiFile, exportName: String): Map<PsiFile, Set<String>> {
+        val project = stylesFile.project
+        val target = stylesFile.virtualFile ?: return emptyMap()
+        val psiManager = PsiManager.getInstance(project)
+        val scope = GlobalSearchScope.projectScope(project)
+        val out = LinkedHashMap<PsiFile, MutableSet<String>>()
+        for (ext in CssModules.JS_EXTS) {
+            for (vf in FilenameIndex.getAllFilesByExt(project, ext, scope)) {
+                if (vf == target) continue
+                val text = runCatching { VfsUtilCore.loadText(vf) }.getOrNull() ?: continue
+                if (!text.contains(exportName)) continue
+                val f = psiManager.findFile(vf) ?: continue
+                val locals = localBindingsForExport(f, target, exportName)
+                if (locals.isNotEmpty()) out.getOrPut(f) { linkedSetOf() }.addAll(locals)
+            }
+        }
+        return out
+    }
+
+    private fun localBindingsForExport(file: PsiFile, target: VirtualFile, exportName: String): Set<String> {
+        val dir = file.virtualFile?.parent ?: return emptySet()
+        val locals = linkedSetOf<String>()
+        for (m in NAMED_IMPORT.findAll(file.text)) {
+            if (resolveJsImport(dir, file.project, m.groupValues[2]) != target) continue
+            for ((local, orig) in parseNamedImports(m.groupValues[1])) if (orig == exportName) locals.add(local)
+        }
+        return locals
+    }
+
+    /** Style keys of [obj] referenced (as `<binding>.<key>` or via destructuring) across its scope. */
+    fun collectUsedKeys(obj: JSObjectLiteralExpression): Set<String> {
+        val definingFile = obj.containingFile?.originalFile ?: return emptySet()
+        val binding = bindingNameOf(obj) ?: return emptySet()
+        val keys = styleKeys(obj).toSet()
+        if (keys.isEmpty()) return emptySet()
+
+        val scope = LinkedHashMap<PsiFile, MutableSet<String>>()
+        scope.getOrPut(definingFile) { linkedSetOf() }.add(binding)
+        if (isExported(obj)) {
+            for ((f, locals) in importersForExport(definingFile, binding)) {
+                scope.getOrPut(f) { linkedSetOf() }.addAll(locals)
+            }
+        }
+
+        val used = HashSet<String>()
+        for ((file, bindings) in scope) {
+            PsiTreeUtil.collectElements(file) { it.firstChild == null && it.text == "." }.forEach { dot ->
+                val q = CssModules.prevMeaningfulLeaf(dot) ?: return@forEach
+                if (q.text !in bindings) return@forEach
+                val member = CssModules.nextMeaningfulLeaf(dot) ?: return@forEach
+                if (member.text in keys) used.add(member.text)
+            }
+            for (m in DESTRUCTURE.findAll(file.text)) {
+                if (m.groupValues[2] !in bindings) continue
+                for ((_, key) in parseDestructuredEntries(m.groupValues[1])) if (key in keys) used.add(key)
+            }
+        }
+        return used
     }
 
     /**
