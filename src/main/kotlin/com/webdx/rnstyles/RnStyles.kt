@@ -199,6 +199,8 @@ internal object RnStyles {
     /** Style keys of [obj] referenced (as `<binding>.<key>` or via destructuring) across its scope. */
     fun collectUsedKeys(obj: JSObjectLiteralExpression): Set<String> {
         val definingFile = obj.containingFile?.originalFile ?: return emptySet()
+        // Precondition: callers pass an obj from fileStyleSheets, which only yields objects
+        // with a binding name — so this never silently empties the used-set for a real sheet.
         val binding = bindingNameOf(obj) ?: return emptySet()
         val keys = styleKeys(obj).toSet()
         if (keys.isEmpty()) return emptySet()

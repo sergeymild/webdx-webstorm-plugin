@@ -15,14 +15,13 @@ class RnStyleUnusedKeyInspectionTest : BasePlatformTestCase() {
         myFixture.enableInspections(RnStyleUnusedKeyInspection())
 
         val descriptions = myFixture.doHighlighting().mapNotNull { it.description }
-        assertTrue(
-            "expected 'boxRadius' flagged unused, got: $descriptions",
-            descriptions.any { it.contains("'boxRadius'") && it.contains("not used") },
-        )
-        assertFalse(
-            "'used' must NOT be flagged, got: $descriptions",
-            descriptions.any { it.contains("'used'") },
-        )
+        // Only the unused top-level key must be flagged — NOT the used key, and NOT the
+        // nested value-object keys (`flex`, `borderRadius`), which are JSProperty nodes too.
+        val relevant = listOf("flex", "borderRadius", "used", "boxRadius")
+        val flagged = descriptions
+            .filter { it.contains("not used") }
+            .mapNotNull { d -> relevant.firstOrNull { d.contains("'$it'") } }
+        assertEquals("only 'boxRadius' should be flagged, got: $descriptions", listOf("boxRadius"), flagged)
     }
 
     fun testKeyUsedOnlyViaDestructuringNotFlagged() {
@@ -39,6 +38,21 @@ class RnStyleUnusedKeyInspectionTest : BasePlatformTestCase() {
         assertFalse(
             "'title' is used via destructuring and must NOT be flagged, got: $descriptions",
             descriptions.any { it.contains("'title'") },
+        )
+    }
+
+    fun testNoStyleSheetNoFlags() {
+        val tsx = myFixture.addFileToProject(
+            "src/Plain.tsx",
+            "const obj = { a: 1, b: 2 }\nconst x = obj.a",
+        )
+        myFixture.configureFromExistingVirtualFile(tsx.virtualFile)
+        myFixture.enableInspections(RnStyleUnusedKeyInspection())
+
+        val descriptions = myFixture.doHighlighting().mapNotNull { it.description }
+        assertFalse(
+            "no StyleSheet object -> nothing flagged, got: $descriptions",
+            descriptions.any { it.contains("not used") },
         )
     }
 
