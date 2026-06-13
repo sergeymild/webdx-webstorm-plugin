@@ -122,9 +122,12 @@ internal object RnStyles {
         return null
     }
 
-    private val DESTRUCTURE = Regex("""(?:const|let|var)\s*\{([^}]*)\}\s*=\s*([A-Za-z_$][\w$]*)""")
+    private val DESTRUCTURE = Regex("""(?:const|let|var)\s*\{([^}]*)\}\s*(?::[^=]*)?\s*=\s*([A-Za-z_$][\w$]*)""")
 
-    /** local name -> (StyleSheet object, source key) for `const { … } = <styles binding>` in [file]. */
+    /**
+     * local name -> (StyleSheet object, source key) for `const { … } = <styles binding>` in [file].
+     * TODO(v2): file-wide and scope-blind — a same-named local in an unrelated scope resolves here too.
+     */
     fun destructuredKeys(file: PsiFile): Map<String, Pair<JSObjectLiteralExpression, String>> {
         val real = file.originalFile
         val out = LinkedHashMap<String, Pair<JSObjectLiteralExpression, String>>()
@@ -151,7 +154,11 @@ internal object RnStyles {
         val dot = CssModules.prevMeaningfulLeaf(element)
         if (dot != null && dot.text == ".") { // Case A: <binding>.<name>
             val qualifier = CssModules.prevMeaningfulLeaf(dot) ?: return null
-            val obj = resolveStyleSheetForBinding(file, qualifier.text) ?: return null
+            val q = qualifier.text
+            // Skip non-identifier qualifiers (e.g. `getStyles().x`, `arr[i].x`) before the
+            // file-wide PSI/text scans in resolveStyleSheetForBinding.
+            if (q.isEmpty() || !q.first().isJavaIdentifierStart()) return null
+            val obj = resolveStyleSheetForBinding(file, q) ?: return null
             return keyProperty(obj, name)
         }
 

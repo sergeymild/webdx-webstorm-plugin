@@ -63,6 +63,20 @@ class RnStyleGotoDeclarationTest : BasePlatformTestCase() {
         assertEquals("title", propAtCaret()?.name)
     }
 
+    fun testAliasedDestructuredLocal() {
+        myFixture.addFileToProject(
+            "styles.ts",
+            "import { StyleSheet } from 'react-native'\nexport const styles = StyleSheet.create({ title: { fontSize: 16 } })",
+        )
+        myFixture.configureByText(
+            "About.tsx",
+            "import { styles } from './styles'\nconst { title: myTitle } = styles\nconst x = myTit<caret>le",
+        )
+        val prop = propAtCaret()
+        assertEquals("title", prop?.name)
+        assertEquals("styles.ts", prop?.containingFile?.name)
+    }
+
     fun testUnknownKeyAndUnrelatedQualifierResolveNull() {
         myFixture.configureByText(
             "Comp.tsx",
