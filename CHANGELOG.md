@@ -19,6 +19,20 @@ Build a distributable zip: `./gradlew buildPlugin` → `build/distributions/webd
 `BasePlatformTestCase`). All features resolve from source files, so they work on the
 tsgo engine where the TS language service doesn't load plugins.
 
+## 1.7.0 — 2026-06-13
+- **New: React Native `StyleSheet.create` support** (`com.webdx.rnstyles`), source-resolved
+  like the CSS-module features. On `styles.<key>` (and on a `const { key } = styles`
+  destructured local): go-to the single key declaration, scoped Find Usages (only the real
+  `<binding>.<key>` accesses, not every same-named member), an "unknown style key" inspection,
+  and an "unused style key" inspection (greys a `StyleSheet.create` key never referenced in its
+  scope — the containing file for an inline object, the importer files for an exported one).
+  Covers inline `const styles = StyleSheet.create({…})` and `export const styles = …` consumed
+  via `import { styles } from './styles'`. Go-to is folded into the existing `GotoDeclaration`
+  action override (the platform allows only one). No completion; no composition/spread or
+  default-export styles (none exist in the target codebase).
+  (`RnStyles`, `RnStyleUnknownKeyInspection`, `RnStyleUnusedKeyInspection`,
+  `RnStyleFindUsagesHandlerFactory`.)
+
 ## 1.6.0 — 2026-06-10
 - **New Alt+Enter intention: add `@import` for a name-resolved SCSS symbol.** When a
   `@include <mixin>`, a `@function` call, a `$variable`, or a `%placeholder` resolves

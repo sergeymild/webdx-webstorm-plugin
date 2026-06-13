@@ -15,6 +15,9 @@ Two feature areas:
 - **i18n (`react-i18next`)** — translation-key completion, unknown-key inspection,
   go-to-definition + scoped Find Usages on a key, and interpolation tooling
   (option-object completion, checks, and go-to-placeholder) for `t('key', { … })`.
+- **React Native `StyleSheet.create`** — on `styles.<key>` (and `const { key } = styles`):
+  go-to the key declaration, scoped Find Usages, unknown-key and unused-key inspections.
+  Source-resolved (no TS service); covers inline and exported+imported style objects.
 
 The plugin id stays `com.webdx.css-modules-scoped-usages` (kept for update
 continuity); only the display name is **WebDX**.
@@ -162,6 +165,32 @@ The key-source JSON is located **from the i18n config**: the file that imports
 `initReactI18next` is found, and its `import en from '…'` is followed to the JSON.
 If detection fails, it falls back to convention (`*/translations/en.json`).
 → `I18nConfig`, `I18nKeyIndex`, `I18nCallSites`, `I18nKeys`
+
+### React Native StyleSheet styles (`com.webdx.rnstyles`)
+
+A "StyleSheet object" is a `StyleSheet.create({ … })` call; its top-level object-literal
+properties are the style keys. All features resolve from source PSI (no TS service), so they
+behave correctly where the service treats `styles.<key>` as an untyped member.
+
+12. **Go-to on `styles.<key>`** → the single key property in the `StyleSheet.create` object.
+    Works for inline (`const styles = …`), imported (`import { styles } from './styles'`),
+    aliased imports, and a destructured local (`const { title } = styles` → `title`). Folded
+    into the `GotoDeclaration` action override (only one such override is allowed).
+    → `RnStyles.resolveKeyProperty`, `CssModuleGotoDeclarationAction`
+
+13. **Scoped Find Usages on a style key.** Lists only the `<binding>.<key>` accesses in the
+    scope (the containing file for an inline object; the importer files for an exported one),
+    instead of every same-named member in the project.
+    → `RnStyleFindUsagesHandlerFactory`
+
+14. **"Unknown style key" inspection.** `styles.doesNotExist` is flagged when `styles`
+    resolves to a `StyleSheet.create` object and the key is absent. Only fires on a resolved
+    StyleSheet binding, so unrelated member access is never redlined.
+    → `RnStyleUnknownKeyInspection`
+
+15. **"Unused style key" inspection.** A key never referenced (`<binding>.<key>` or via
+    destructuring) in its scope is greyed as unused.
+    → `RnStyleUnusedKeyInspection`
 
 ---
 
