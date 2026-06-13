@@ -31,7 +31,7 @@ class RnStylesPsiTest : BasePlatformTestCase() {
         assertTrue(RnStyles.fileStyleSheets(file).isEmpty())
     }
 
-    fun testInlineNonExportedBindingNameIsAny() {
+    fun testFindsNonExportedConst() {
         val file = myFixture.configureByText(
             "Comp.tsx",
             "import { StyleSheet } from 'react-native'\nconst expStyles = StyleSheet.create({ row: { flex: 1 } })",

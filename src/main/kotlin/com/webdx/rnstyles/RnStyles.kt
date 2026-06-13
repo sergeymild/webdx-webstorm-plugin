@@ -58,10 +58,11 @@ internal object RnStyles {
         return call.arguments.firstOrNull() as? JSObjectLiteralExpression
     }
 
-    /** Top-level property names of a StyleSheet object (computed/spread/unnamed skipped). */
+    /** Top-level property names of a StyleSheet object (computed/spread/unnamed skipped; duplicates deduped, first kept). */
     fun styleKeys(obj: JSObjectLiteralExpression): List<String> =
         obj.properties.mapNotNull { it.name }.distinct()
 
+    /** The [JSProperty] declaring style key [name] in [obj], or null if absent. */
     fun keyProperty(obj: JSObjectLiteralExpression, name: String): JSProperty? =
         obj.properties.firstOrNull { it.name == name }
 
@@ -74,7 +75,7 @@ internal object RnStyles {
         val out = LinkedHashMap<String, JSObjectLiteralExpression>()
         for (call in PsiTreeUtil.collectElementsOfType(file, JSCallExpression::class.java)) {
             val obj = styleSheetObjectOf(call) ?: continue
-            val name = PsiTreeUtil.getParentOfType(call, JSVariable::class.java)?.name ?: continue
+            val name = bindingNameOf(obj) ?: continue
             out.putIfAbsent(name, obj)
         }
         return out
