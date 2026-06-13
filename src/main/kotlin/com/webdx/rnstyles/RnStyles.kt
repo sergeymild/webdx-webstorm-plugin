@@ -163,7 +163,7 @@ internal object RnStyles {
     /** True if the StyleSheet object is declared with `export` (so it can be consumed elsewhere). */
     fun isExported(obj: JSObjectLiteralExpression): Boolean {
         val stmt = PsiTreeUtil.getParentOfType(obj, JSVarStatement::class.java) ?: return false
-        return stmt.text.trimStart().startsWith("export")
+        return stmt.attributeList?.text?.contains("export") == true
     }
 
     /** Files importing [exportName] from [stylesFile], each mapped to the local binding name(s) used. */
@@ -177,7 +177,7 @@ internal object RnStyles {
             for (vf in FilenameIndex.getAllFilesByExt(project, ext, scope)) {
                 if (vf == target) continue
                 val text = runCatching { VfsUtilCore.loadText(vf) }.getOrNull() ?: continue
-                if (!text.contains(exportName)) continue
+                if (!Regex("""\b${Regex.escape(exportName)}\b""").containsMatchIn(text)) continue
                 val f = psiManager.findFile(vf) ?: continue
                 val locals = localBindingsForExport(f, target, exportName)
                 if (locals.isNotEmpty()) out.getOrPut(f) { linkedSetOf() }.addAll(locals)
@@ -216,6 +216,8 @@ internal object RnStyles {
             PsiTreeUtil.collectElements(file) { it.firstChild == null && it.text == "." }.forEach { dot ->
                 val q = CssModules.prevMeaningfulLeaf(dot) ?: return@forEach
                 if (q.text !in bindings) return@forEach
+                val dotBeforeQ = CssModules.prevMeaningfulLeaf(q)
+                if (dotBeforeQ != null && dotBeforeQ.text == ".") return@forEach // chained: x.styles.key
                 val member = CssModules.nextMeaningfulLeaf(dot) ?: return@forEach
                 if (member.text in keys) used.add(member.text)
             }

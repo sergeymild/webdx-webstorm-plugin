@@ -123,4 +123,17 @@ class RnStylesPsiTest : BasePlatformTestCase() {
         val obj = RnStyles.fileStyleSheets(stylesPsi).getValue("styles")
         assertEquals(setOf("used"), RnStyles.collectUsedKeys(obj))
     }
+
+    fun testCollectUsedKeysExportedViaAliasedImporter() {
+        val stylesPsi = myFixture.addFileToProject(
+            "styles.ts",
+            "import { StyleSheet } from 'react-native'\nexport const styles = StyleSheet.create({ used: { flex: 1 }, dead: { flex: 1 } })",
+        )
+        myFixture.addFileToProject(
+            "About.tsx",
+            "import { styles as s } from './styles'\nconst x = s.used",
+        )
+        val obj = RnStyles.fileStyleSheets(stylesPsi).getValue("styles")
+        assertEquals(setOf("used"), RnStyles.collectUsedKeys(obj))
+    }
 }
