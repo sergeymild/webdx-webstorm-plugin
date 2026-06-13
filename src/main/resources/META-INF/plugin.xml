@@ -26,6 +26,9 @@
         <findUsagesHandlerFactory
             order="first"
             implementation="com.webdx.cssmodules.CssModuleFindUsagesHandlerFactory"/>
+        <findUsagesHandlerFactory
+            order="first"
+            implementation="com.webdx.rnstyles.RnStyleFindUsagesHandlerFactory"/>
         <gotoDeclarationHandler
             implementation="com.webdx.cssmodules.CssModuleGotoDeclarationHandler"/>
         <intentionAction>
