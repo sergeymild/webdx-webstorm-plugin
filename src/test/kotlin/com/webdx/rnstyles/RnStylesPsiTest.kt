@@ -38,4 +38,47 @@ class RnStylesPsiTest : BasePlatformTestCase() {
         )
         assertEquals(setOf("expStyles"), RnStyles.fileStyleSheets(file).keys)
     }
+
+    fun testResolvesLocalBinding() {
+        val file = myFixture.configureByText(
+            "Comp.tsx",
+            "import { StyleSheet } from 'react-native'\nconst styles = StyleSheet.create({ row: { flex: 1 } })\nconst x = styles.row",
+        )
+        val obj = RnStyles.resolveStyleSheetForBinding(file, "styles")
+        assertNotNull(obj)
+        assertEquals(listOf("row"), RnStyles.styleKeys(obj!!))
+    }
+
+    fun testResolvesNamedImportBinding() {
+        myFixture.addFileToProject(
+            "styles.ts",
+            "import { StyleSheet } from 'react-native'\nexport const styles = StyleSheet.create({ title: { fontSize: 16 } })",
+        )
+        val file = myFixture.configureByText(
+            "About.tsx",
+            "import { styles } from './styles'\nconst x = styles.title",
+        )
+        val obj = RnStyles.resolveStyleSheetForBinding(file, "styles")
+        assertNotNull(obj)
+        assertEquals(listOf("title"), RnStyles.styleKeys(obj!!))
+    }
+
+    fun testResolvesAliasedNamedImportBinding() {
+        myFixture.addFileToProject(
+            "styles.ts",
+            "import { StyleSheet } from 'react-native'\nexport const styles = StyleSheet.create({ box: { flex: 1 } })",
+        )
+        val file = myFixture.configureByText(
+            "About.tsx",
+            "import { styles as s } from './styles'\nconst x = s.box",
+        )
+        val obj = RnStyles.resolveStyleSheetForBinding(file, "s")
+        assertNotNull(obj)
+        assertEquals(listOf("box"), RnStyles.styleKeys(obj!!))
+    }
+
+    fun testUnknownBindingResolvesNull() {
+        val file = myFixture.configureByText("About.tsx", "const x = nope.title")
+        assertNull(RnStyles.resolveStyleSheetForBinding(file, "nope"))
+    }
 }

@@ -4,8 +4,12 @@ import com.intellij.lang.javascript.psi.JSCallExpression
 import com.intellij.lang.javascript.psi.JSObjectLiteralExpression
 import com.intellij.lang.javascript.psi.JSProperty
 import com.intellij.lang.javascript.psi.JSVariable
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiManager
 import com.intellij.psi.util.PsiTreeUtil
+import com.webdx.cssmodules.CssModules
 
 /**
  * Shared helpers for React Native `StyleSheet.create` styles, all on generic JS PSI
@@ -79,5 +83,43 @@ internal object RnStyles {
             out.putIfAbsent(name, obj)
         }
         return out
+    }
+
+    private val JS_EXTS = listOf("ts", "tsx", "js", "jsx", "mts", "cts", "mjs", "cjs")
+
+    internal val NAMED_IMPORT = Regex("""import\s*\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]""")
+
+    /** Resolve a JS/TS import [path] (extensionless allowed) to a VirtualFile. */
+    fun resolveJsImport(fromDir: VirtualFile, project: Project, path: String): VirtualFile? {
+        CssModules.resolveImportPath(fromDir, project, path)?.let { if (!it.isDirectory) return it }
+        for (ext in JS_EXTS) CssModules.resolveImportPath(fromDir, project, "$path.$ext")?.let { return it }
+        for (ext in JS_EXTS) CssModules.resolveImportPath(fromDir, project, "$path/index.$ext")?.let { return it }
+        return null
+    }
+
+    /**
+     * Resolve qualifier [binding] used in [jsFile] to its StyleSheet object:
+     * a same-file `const <binding> = StyleSheet.create(...)` first, else a named import
+     * `import { <binding> } from '...'` -> the exported StyleSheet object in the target file.
+     */
+    fun resolveStyleSheetForBinding(jsFile: PsiFile, binding: String): JSObjectLiteralExpression? {
+        val file = jsFile.originalFile
+        fileStyleSheets(file)[binding]?.let { return it }
+        val (targetFile, exportName) = resolveNamedImport(file, binding) ?: return null
+        return fileStyleSheets(targetFile)[exportName]
+    }
+
+    /** For [binding] in [jsFile], find `import { ... } from 'path'` -> (target file, original export name). */
+    private fun resolveNamedImport(jsFile: PsiFile, binding: String): Pair<PsiFile, String>? {
+        val dir = jsFile.virtualFile?.parent ?: return null
+        val project = jsFile.project
+        val psiManager = PsiManager.getInstance(project)
+        for (m in NAMED_IMPORT.findAll(jsFile.text)) {
+            val orig = parseNamedImports(m.groupValues[1])[binding] ?: continue
+            val vf = resolveJsImport(dir, project, m.groupValues[2]) ?: continue
+            val target = psiManager.findFile(vf) ?: continue
+            return target to orig
+        }
+        return null
     }
 }
