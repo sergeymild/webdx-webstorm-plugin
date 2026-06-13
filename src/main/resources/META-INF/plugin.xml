@@ -137,6 +137,32 @@
             displayName="Unknown React Native style key"
             groupName="JavaScript" enabledByDefault="true" level="ERROR"
             implementationClass="com.webdx.rnstyles.RnStyleUnknownKeyInspection"/>
+
+        <localInspection language="TypeScript JSX"
+            shortName="RnStyleUnusedKeyTsx"
+            displayName="Unused React Native style key"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.webdx.rnstyles.RnStyleUnusedKeyInspection"/>
+        <localInspection language="TypeScript"
+            shortName="RnStyleUnusedKeyTs"
+            displayName="Unused React Native style key"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.webdx.rnstyles.RnStyleUnusedKeyInspection"/>
+        <localInspection language="JavaScript"
+            shortName="RnStyleUnusedKeyJs"
+            displayName="Unused React Native style key"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.webdx.rnstyles.RnStyleUnusedKeyInspection"/>
+        <localInspection language="ECMAScript 6"
+            shortName="RnStyleUnusedKeyEs6"
+            displayName="Unused React Native style key"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.webdx.rnstyles.RnStyleUnusedKeyInspection"/>
+        <localInspection language="JSX Harmony"
+            shortName="RnStyleUnusedKeyJsx"
+            displayName="Unused React Native style key"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.webdx.rnstyles.RnStyleUnusedKeyInspection"/>
     </extensions>
 
     <extensions defaultExtensionNs="JavaScript">
