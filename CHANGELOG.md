@@ -22,8 +22,7 @@ tsgo engine where the TS language service doesn't load plugins.
 ## 1.7.0 — 2026-06-13
 - **New: React Native `StyleSheet.create` support** (`com.webdx.rnstyles`), source-resolved
   like the CSS-module features. On `styles.<key>` (and on a `const { key } = styles`
-  destructured local): go-to the single key declaration, scoped Find Usages (only the real
-  `<binding>.<key>` accesses, not every same-named member), an "unknown style key" inspection,
+  destructured local): go-to the single key declaration, scoped Find Usages (the real references — `<binding>.<key>` accesses and `const { key } = styles` destructuring — not every same-named member), an "unknown style key" inspection,
   and an "unused style key" inspection (greys a `StyleSheet.create` key never referenced in its
   scope — the containing file for an inline object, the importer files for an exported one).
   Covers inline `const styles = StyleSheet.create({…})` and `export const styles = …` consumed

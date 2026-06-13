@@ -65,6 +65,19 @@ class RnStyleFindUsagesTest : BasePlatformTestCase() {
         assertEquals("only direct styles.foo, not theme.styles.foo: ${usages.map { it.element?.text }}", 1, usages.size)
     }
 
+    fun testReportsDestructuringSiteAndLocalUse() {
+        myFixture.configureByText(
+            "Comp.tsx",
+            "import { StyleSheet } from 'react-native'\n" +
+                "const styles = StyleSheet.create({ ti<caret>tle: { fontSize: 16 } })\n" +
+                "const { title } = styles\nconst x = title",
+        )
+        // The destructuring site `{ title }` AND the downstream use `title` — but NOT the
+        // `title:` declaration — are reported: 2 usages.
+        val usages = myFixture.findUsages(keyPropAtCaret())
+        assertEquals("usages: ${usages.map { it.element?.text }}", 2, usages.size)
+    }
+
     fun testExportedKeyScopedToImporters() {
         myFixture.addFileToProject(
             "A.tsx",

@@ -178,7 +178,7 @@ behave correctly where the service treats `styles.<key>` as an untyped member.
     into the `GotoDeclaration` action override (only one such override is allowed).
     → `RnStyles.resolveKeyProperty`, `CssModuleGotoDeclarationAction`
 
-13. **Scoped Find Usages on a style key.** Lists only the `<binding>.<key>` accesses in the
+13. **Scoped Find Usages on a style key.** Lists only the real references (`<binding>.<key>` accesses and `const { key } = styles` destructuring) in the
     scope (the containing file for an inline object; the importer files for an exported one),
     instead of every same-named member in the project.
     → `RnStyleFindUsagesHandlerFactory`

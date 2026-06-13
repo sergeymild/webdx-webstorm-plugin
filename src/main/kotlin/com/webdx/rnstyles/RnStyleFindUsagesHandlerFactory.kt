@@ -29,10 +29,6 @@ class RnStyleFindUsagesHandlerFactory : FindUsagesHandlerFactory() {
         // The platform only calls this after canFindUsages returned true, so targetProperty is non-null.
         val prop = requireNotNull(targetProperty(element)) { "createFindUsagesHandler called without a style-key target" }
         return object : FindUsagesHandler(prop) {
-            // Default options; the scoping is done in processElementUsages. Kept as an explicit hook.
-            override fun getFindUsagesOptions(dataContext: com.intellij.openapi.actionSystem.DataContext?): FindUsagesOptions =
-                super.getFindUsagesOptions(dataContext)
-
             override fun processElementUsages(
                 target: PsiElement,
                 processor: Processor<in UsageInfo>,
@@ -78,16 +74,33 @@ class RnStyleFindUsagesHandlerFactory : FindUsagesHandlerFactory() {
                 el.firstChild == null && el.textLength == key.length && el.text == key
             }
             for (leaf in leaves) {
-                val dot = CssModules.prevMeaningfulLeaf(leaf) ?: continue
-                if (dot.text != ".") continue
-                val qualifier = CssModules.prevMeaningfulLeaf(dot) ?: continue
-                if (qualifier.text !in bindings) continue
-                // Skip chained access (e.g. `theme.styles.key`): qualifier is itself a member.
-                val dotBeforeQ = CssModules.prevMeaningfulLeaf(qualifier)
-                if (dotBeforeQ != null && dotBeforeQ.text == ".") continue
-                if (!processor.process(UsageInfo(leaf))) return false
+                val dot = CssModules.prevMeaningfulLeaf(leaf)
+                if (dot != null && dot.text == ".") {
+                    val qualifier = CssModules.prevMeaningfulLeaf(dot) ?: continue
+                    if (qualifier.text !in bindings) continue
+                    // Skip chained access (e.g. `theme.styles.key`): qualifier is itself a member.
+                    val dotBeforeQ = CssModules.prevMeaningfulLeaf(qualifier)
+                    if (dotBeforeQ != null && dotBeforeQ.text == ".") continue
+                    if (!processor.process(UsageInfo(leaf))) return false
+                } else {
+                    // Not a member access. Could be a `const { key } = <binding>` destructuring
+                    // site, or a use of that destructured local. Exclude the key's own (and any
+                    // other StyleSheet's) declaration leaf — that's a definition, not a usage.
+                    val asDecl = styleKeyProperty(leaf)
+                    if (asDecl != null && asDecl.nameIdentifier == leaf) continue
+                    if (sameProperty(RnStyles.resolveKeyProperty(leaf), prop)) {
+                        if (!processor.process(UsageInfo(leaf))) return false
+                    }
+                }
             }
         }
         return true
+    }
+
+    /** Robust identity for a resolved key property vs the target (covers cross-file resolution). */
+    private fun sameProperty(a: JSProperty?, b: JSProperty): Boolean {
+        if (a == null) return false
+        if (a == b) return true
+        return a.containingFile?.originalFile == b.containingFile?.originalFile && a.textRange == b.textRange
     }
 }
