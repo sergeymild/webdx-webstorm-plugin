@@ -42,6 +42,26 @@ class RnStyleUnknownKeyInspectionTest : BasePlatformTestCase() {
         assertFalse("real key 'title' must NOT be flagged, got: $descriptions", descriptions.any { it.contains("'title'") })
     }
 
+    fun testChainedAccessNotFlagged() {
+        // `theme.styles.doesNotExist` — the qualifier `styles` is itself a member access,
+        // so it must NOT be treated as the StyleSheet binding and must not be flagged.
+        val tsx = myFixture.addFileToProject(
+            "src/Comp.tsx",
+            "import { StyleSheet } from 'react-native'\n" +
+                "const styles = StyleSheet.create({ container: { flex: 1 } })\n" +
+                "const theme = { styles }\n" +
+                "const x = theme.styles.doesNotExist",
+        )
+        myFixture.configureFromExistingVirtualFile(tsx.virtualFile)
+        myFixture.enableInspections(RnStyleUnknownKeyInspection())
+
+        val descriptions = myFixture.doHighlighting().mapNotNull { it.description }
+        assertFalse(
+            "chained access theme.styles.* must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("Unknown style key") },
+        )
+    }
+
     fun testUnrelatedMemberAccessNotFlagged() {
         val tsx = myFixture.addFileToProject(
             "src/Comp.tsx",

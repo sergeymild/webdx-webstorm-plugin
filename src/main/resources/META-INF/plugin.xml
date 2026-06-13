@@ -111,6 +111,7 @@
             groupName="CSS" enabledByDefault="true" level="ERROR"
             implementationClass="com.webdx.cssmodules.CssModuleUnknownClassInspection"/>
 
+        <!-- groupName="JavaScript": these run on JS/TS sources (like the i18n inspections), not CSS files. -->
         <localInspection language="TypeScript JSX"
             shortName="RnStyleUnknownKeyTsx"
             displayName="Unknown React Native style key"

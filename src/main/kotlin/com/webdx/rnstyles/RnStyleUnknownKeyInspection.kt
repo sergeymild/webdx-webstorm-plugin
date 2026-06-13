@@ -29,6 +29,7 @@ class RnStyleUnknownKeyInspection : LocalInspectionTool() {
                 val dot = CssModules.prevMeaningfulLeaf(element) ?: return
                 if (dot.text != ".") return
                 val qualifier = CssModules.prevMeaningfulLeaf(dot) ?: return
+                if (qualifier.text.isEmpty() || !qualifier.text.first().isJavaIdentifierStart()) return
                 // Skip chained access (e.g. `theme.styles.key`): the qualifier is itself a member.
                 val dotBeforeQ = CssModules.prevMeaningfulLeaf(qualifier)
                 if (dotBeforeQ != null && dotBeforeQ.text == ".") return
