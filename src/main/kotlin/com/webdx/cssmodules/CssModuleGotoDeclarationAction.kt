@@ -29,13 +29,21 @@ class CssModuleGotoDeclarationAction : GotoDeclarationAction() {
             if (editor != null && psiFile != null) {
                 val offset = editor.caretModel.offset
                 val element = psiFile.findElementAt(offset)
-                if (element != null && CssModuleClassNavigation.isMemberAccessLeaf(element)) {
-                    val target = CssModuleClassNavigation.resolveTarget(element)
-                    log.warn(
-                        "[CSS-GOTOACTION] '${element.text}' -> ${target?.containingFile?.name ?: "null (delegating)"}",
-                    )
-                    if (target != null) {
-                        PsiNavigateUtil.navigate(target)
+                if (element != null) {
+                    if (CssModuleClassNavigation.isMemberAccessLeaf(element)) {
+                        val target = CssModuleClassNavigation.resolveTarget(element)
+                        log.warn(
+                            "[CSS-GOTOACTION] '${element.text}' -> ${target?.containingFile?.name ?: "null (delegating)"}",
+                        )
+                        if (target != null) {
+                            PsiNavigateUtil.navigate(target)
+                            return
+                        }
+                    }
+                    // React Native StyleSheet styles: styles.<key> or a destructured local.
+                    val rnTarget = com.webdx.rnstyles.RnStyles.resolveKeyProperty(element)
+                    if (rnTarget != null) {
+                        PsiNavigateUtil.navigate(rnTarget)
                         return
                     }
                 }
