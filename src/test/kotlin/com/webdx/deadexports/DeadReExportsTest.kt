@@ -51,4 +51,52 @@ class DeadReExportsTest : BasePlatformTestCase() {
         val kind = classifyRefIn("export { a } from './x'")
         assertTrue("expected ReExportSite, got $kind", kind is DeadReExports.RefKind.ReExportSite)
     }
+
+    private fun analyzer() = DeadReExports.Analyzer(project)
+
+    private fun moduleFile(path: String): com.intellij.psi.PsiFile =
+        com.intellij.psi.PsiManager.getInstance(project)
+            .findFile(myFixture.findFileInTempDir(path))!!
+
+    fun testDeadBarrelBypassedByDeepRequire() {
+        // barrel re-exports the component; the only consumer requires the .tsx DIRECTLY.
+        myFixture.addFileToProject("a/Screen.tsx", "export const Screen = () => null\nexport default Screen\n")
+        myFixture.addFileToProject("a/index.ts", "export { Screen } from './Screen'\n")
+        myFixture.addFileToProject("nav.tsx", "const C = require('./a/Screen').Screen\n")
+        myFixture.configureByText("trigger.ts", "")
+        assertFalse(analyzer().isLive(moduleFile("a/index.ts"), "Screen"))
+    }
+
+    fun testBarrelKeptAliveByImport() {
+        myFixture.addFileToProject("a/Screen.tsx", "export const Screen = () => null\n")
+        myFixture.addFileToProject("a/index.ts", "export { Screen } from './Screen'\n")
+        myFixture.addFileToProject("use.ts", "import { Screen } from './a'\nconst x = Screen\n")
+        myFixture.configureByText("trigger.ts", "")
+        assertTrue(analyzer().isLive(moduleFile("a/index.ts"), "Screen"))
+    }
+
+    fun testTransitiveChainLiveRoot() {
+        // leaf -> mid (re-export) -> top (re-export) -> real import of top.
+        myFixture.addFileToProject("leaf.ts", "export const K = 1\n")
+        myFixture.addFileToProject("mid.ts", "export { K } from './leaf'\n")
+        myFixture.addFileToProject("top.ts", "export { K } from './mid'\n")
+        myFixture.addFileToProject("use.ts", "import { K } from './top'\nconst x = K\n")
+        myFixture.configureByText("trigger.ts", "")
+        assertTrue("mid should be live via top's importer", analyzer().isLive(moduleFile("mid.ts"), "K"))
+    }
+
+    fun testTransitiveChainAllDead() {
+        myFixture.addFileToProject("leaf.ts", "export const K = 1\n")
+        myFixture.addFileToProject("mid.ts", "export { K } from './leaf'\n")
+        myFixture.addFileToProject("top.ts", "export { K } from './mid'\n") // nobody imports top
+        myFixture.configureByText("trigger.ts", "")
+        assertFalse(analyzer().isLive(moduleFile("mid.ts"), "K"))
+    }
+
+    fun testCycleTerminates() {
+        myFixture.addFileToProject("p.ts", "export { Z } from './q'\n")
+        myFixture.addFileToProject("q.ts", "export { Z } from './p'\n") // mutual, no real consumer
+        myFixture.configureByText("trigger.ts", "")
+        assertFalse(analyzer().isLive(moduleFile("p.ts"), "Z"))
+    }
 }
