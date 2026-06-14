@@ -177,6 +177,32 @@
             displayName="Unused React Native style key"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.rnstyles.RnStyleUnusedKeyInspection"/>
+
+        <localInspection language="TypeScript JSX"
+            shortName="DeadReExportTsx"
+            displayName="Dead re-export (unused barrel link)"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.webdx.deadexports.DeadReExportInspection"/>
+        <localInspection language="TypeScript"
+            shortName="DeadReExportTs"
+            displayName="Dead re-export (unused barrel link)"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.webdx.deadexports.DeadReExportInspection"/>
+        <localInspection language="JavaScript"
+            shortName="DeadReExportJs"
+            displayName="Dead re-export (unused barrel link)"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.webdx.deadexports.DeadReExportInspection"/>
+        <localInspection language="ECMAScript 6"
+            shortName="DeadReExportEs6"
+            displayName="Dead re-export (unused barrel link)"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.webdx.deadexports.DeadReExportInspection"/>
+        <localInspection language="JSX Harmony"
+            shortName="DeadReExportJsxHarmony"
+            displayName="Dead re-export (unused barrel link)"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.webdx.deadexports.DeadReExportInspection"/>
     </extensions>
 
     <extensions defaultExtensionNs="JavaScript">
