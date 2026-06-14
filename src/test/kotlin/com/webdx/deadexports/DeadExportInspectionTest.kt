@@ -22,4 +22,14 @@ class DeadExportInspectionTest : BasePlatformTestCase() {
         assertTrue("Some should be flagged, got: $descriptions",
             descriptions.any { it.contains("'Some'") && it.contains("never used") })
     }
+
+    fun testLiveInlineExportNotFlagged() {
+        // A real named import keeps the export live -> not flagged.
+        myFixture.addFileToProject("components/SomeFun.tsx", "export const SomeFun = () => null\n")
+        myFixture.addFileToProject("components/index.ts", "export * from './SomeFun'\n")
+        myFixture.addFileToProject("use.tsx", "import { SomeFun } from './components'\nconst x = SomeFun\n")
+        val descriptions = descriptionsFor("components/SomeFun.tsx")
+        assertFalse("live export must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("never used") })
+    }
 }
