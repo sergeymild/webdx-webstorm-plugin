@@ -232,6 +232,16 @@ behave correctly where the service treats `styles.<key>` as an untyped member.
     `pages/` folder are unaffected.
     → `DeadReExportInspection`, `DeadReExports` (reachability), `NextEntryPoints` (entry points)
 
+18. **"Unused export" inspection** (`com.webdx.deadexports.DeadExportInspection`). Greys a
+    **directly-declared** export — `export const/let/var`, `export function`, `export class`,
+    `export default`, a local `export { x as y }`, or `export interface/type/enum` — when **no
+    other module** reaches its exported name through the import/re-export graph (reusing the same
+    reverse reachability as the dead re-export inspection). Same-file references (e.g.
+    `SomeFun.displayName = 'SomeFun'`, or another local symbol) do not count as usage, so an
+    export consumed only by a dead barrel link is flagged. Next.js page/app entry points are
+    excluded. The `… from` re-export links themselves remain owned by the dead re-export
+    inspection above.
+
 ---
 
 ## Architecture / where each thing lives
