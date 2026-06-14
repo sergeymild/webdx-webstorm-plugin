@@ -38,6 +38,11 @@ class DeadExportInspection : LocalInspectionTool() {
         return object : PsiElementVisitor() {
             override fun visitElement(element: PsiElement) {
                 when (element) {
+                    is ES6ExportDefaultAssignment -> {
+                        val named = element.namedElement
+                        val anchor = (named as? PsiNameIdentifierOwner)?.nameIdentifier ?: named ?: element
+                        flag("default", anchor)
+                    }
                     // Local `export { x as y }` only. Re-exports (`… from`) belong to DeadReExportInspection.
                     is ES6ExportSpecifier -> {
                         val decl = PsiTreeUtil.getParentOfType(element, ES6ExportDeclaration::class.java, false)

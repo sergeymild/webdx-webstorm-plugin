@@ -32,4 +32,20 @@ class DeadExportInspectionTest : BasePlatformTestCase() {
         assertFalse("live export must NOT be flagged, got: $descriptions",
             descriptions.any { it.contains("never used") })
     }
+
+    fun testUnusedDefaultExportFlagged() {
+        myFixture.addFileToProject("widget.tsx", "export default function Widget() { return null }\n")
+        val descriptions = descriptionsFor("widget.tsx")
+        assertTrue("unused default export should be flagged, got: $descriptions",
+            descriptions.any { it.contains("'default'") && it.contains("never used") })
+    }
+
+    fun testNextPageDefaultNotFlagged() {
+        // A Next.js page default is an entry point (next.config present) -> whole file skipped.
+        myFixture.addFileToProject("next.config.js", "module.exports = {}\n")
+        myFixture.addFileToProject("pages/p/index.tsx", "export default function Page() { return null }\n")
+        val descriptions = descriptionsFor("pages/p/index.tsx")
+        assertFalse("Next.js page default must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("never used") })
+    }
 }
