@@ -95,4 +95,17 @@ class DeadExportInspectionTest : BasePlatformTestCase() {
         assertFalse("DeadExportInspection must NOT flag a `… from` re-export, got: $descriptions",
             descriptions.any { it.contains("never used") })
     }
+
+    fun testSameFileOnlyUseStillFlagged() {
+        // `helper` is exported but used only inside its own module; no external consumer -> flagged
+        // (chosen "no external consumer = unused" rule). `Main` is consumed externally -> live.
+        myFixture.addFileToProject("m.ts",
+            "export const helper = () => 1\nexport const Main = () => helper()\n")
+        myFixture.addFileToProject("use.ts", "import { Main } from './m'\nconst x = Main\n")
+        val descriptions = descriptionsFor("m.ts")
+        assertTrue("internally-only-used export must be flagged, got: $descriptions",
+            descriptions.any { it.contains("'helper'") && it.contains("never used") })
+        assertFalse("externally-consumed export must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("'Main'") && it.contains("never used") })
+    }
 }
