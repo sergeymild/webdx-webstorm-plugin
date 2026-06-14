@@ -99,4 +99,21 @@ class DeadReExportsTest : BasePlatformTestCase() {
         myFixture.configureByText("trigger.ts", "")
         assertFalse(analyzer().isLive(moduleFile("p.ts"), "Z"))
     }
+
+    fun testNamespaceImportKeepsAllLive() {
+        myFixture.addFileToProject("a/Screen.tsx", "export const Screen = () => null\n")
+        myFixture.addFileToProject("a/index.ts", "export { Screen } from './Screen'\n")
+        myFixture.addFileToProject("use.ts", "import * as ns from './a'\nconst x = ns\n")
+        myFixture.configureByText("trigger.ts", "")
+        assertTrue(analyzer().isLive(moduleFile("a/index.ts"), "Screen"))
+    }
+
+    fun testExportStarConsumerKeepsLiveWhenItsRootIsLive() {
+        myFixture.addFileToProject("a/Screen.tsx", "export const Screen = () => null\n")
+        myFixture.addFileToProject("a/index.ts", "export { Screen } from './Screen'\n")
+        myFixture.addFileToProject("agg.ts", "export * from './a'\n")          // re-export site
+        myFixture.addFileToProject("use.ts", "import { Screen } from './agg'\nconst x = Screen\n")
+        myFixture.configureByText("trigger.ts", "")
+        assertTrue(analyzer().isLive(moduleFile("a/index.ts"), "Screen"))
+    }
 }
