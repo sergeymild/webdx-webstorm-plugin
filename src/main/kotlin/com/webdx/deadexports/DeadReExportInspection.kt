@@ -33,8 +33,13 @@ class DeadReExportInspection : LocalInspectionTool() {
                     // referenceName is the SOURCE name (the name in the source module);
                     // declaredName is the publicly exported name (the alias when present).
                     val sourceName = spec.referenceName ?: continue
-                    if (!analyzer.isLive(moduleFile, sourceName)) {
-                        val displayName = spec.declaredName ?: sourceName
+                    // Query liveness by the EXPORTED name, not the source name. Analyzer.isLive's
+                    // contract is `name` = a name exported by `moduleFile`: consumers import the
+                    // exported name and the recursion propagates it. For `Inner as Outer` the two
+                    // diverge, so using the source name false-flagged a consumed aliased re-export.
+                    // For a non-aliased specifier displayName == sourceName, so behavior is unchanged.
+                    val displayName = spec.declaredName ?: sourceName
+                    if (!analyzer.isLive(moduleFile, displayName)) {
                         // Anchor on the exported-name identifier rather than the whole specifier:
                         // for `X as Y` the alias's nameIdentifier is `Y`; with no alias the
                         // referenceNameElement is the single name that is both source and export.

@@ -58,6 +58,29 @@ class DeadReExportInspectionTest : BasePlatformTestCase() {
             descriptions.any { it.contains("'B'") && it.contains("never used") })
     }
 
+    fun testAliasedReExportConsumedNotFlagged() {
+        // leaf exports `Inner`; the barrel re-exports it as `Outer`; a consumer imports `Outer`.
+        // The re-export is live under its EXPORTED name `Outer` and must NOT be flagged. Before
+        // the fix the inspection queried liveness by the SOURCE name `Inner`, which no consumer
+        // references, so the live aliased re-export was wrongly greyed.
+        myFixture.addFileToProject("leaf.ts", "export const Inner = 1\n")
+        myFixture.addFileToProject("m/index.ts", "export { Inner as Outer } from '../leaf'\n")
+        myFixture.addFileToProject("use.ts", "import { Outer } from './m'\nconst y = Outer\n")
+        val descriptions = descriptionsFor("m/index.ts")
+        assertFalse("consumed aliased re-export must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("never used") })
+    }
+
+    fun testAliasedReExportNeverConsumedFlagged() {
+        // Same aliased barrel but nobody consumes `Outer`. It must be flagged under the EXPORTED
+        // name `Outer` (not the source name `Inner`).
+        myFixture.addFileToProject("leaf.ts", "export const Inner = 1\n")
+        myFixture.addFileToProject("m/index.ts", "export { Inner as Outer } from '../leaf'\n")
+        val descriptions = descriptionsFor("m/index.ts")
+        assertTrue("unconsumed aliased re-export should be flagged under 'Outer', got: $descriptions",
+            descriptions.any { it.contains("'Outer'") && it.contains("never used") })
+    }
+
     fun testNonReExportFileNoFlags() {
         myFixture.addFileToProject("plain.ts", "export const a = 1\nconst b = a\n")
         val descriptions = descriptionsFor("plain.ts")
