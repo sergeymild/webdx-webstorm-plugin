@@ -110,11 +110,30 @@ new liveness.
 - `isLive` recursion is bounded by the `visited` set and by the (typically small) re-export
   fan-out.
 
+## Framework entry points (added after initial design)
+
+Some files are loaded by framework convention, not by any `import`/`require` — so
+`ReferencesSearch` finds no consumer and they would be wrongly flagged. The dominant case is
+**Next.js**: every file under `pages/` (incl. `pages/api`, `_app`, `_document`, `_error`) and
+App Router `app/` files with a reserved basename (`page`, `layout`, `route`, `loading`,
+`error`, `template`, `default`, `not-found`, `global-error`) are route/entry modules. In a
+real project ~88% of page files are re-export-only barrels, so without this the inspection is
+unusable there.
+
+Decision (built-in, zero-config, gated on `next.config.*` so non-Next projects are
+unaffected): a Next.js entry-point module — and any name it re-exports — is **always live**.
+This is implemented as an early `live = true` at the top of `isLive` (after the memo lookup),
+which also covers barrels reachable *only* through a page, since `forwardsName`-gated
+recursion lands on the entry-point file. The inspection visitor additionally skips
+entry-point files outright. Configurable globs for other frameworks remain out of scope.
+
 ## Components
 
 - `com.webdx.deadexports.DeadReExports` — pure logic: enumerate re-exported names of a
   declaration, resolve module references, and compute `isLive` with caching. No platform
   UI concerns; unit-testable.
+- `com.webdx.deadexports.NextEntryPoints` — recognizes Next.js convention entry points
+  (`pages/`, `src/pages/`, App Router reserved files), gated on a sibling `next.config.*`.
 - `com.webdx.deadexports.DeadReExportInspection : LocalInspectionTool` — thin visitor that
   finds `from`-bearing export declarations, calls `DeadReExports.isLive`, and registers the
   weak warning. Mirrors `RnStyleUnusedKeyInspection`.
@@ -131,6 +150,11 @@ new liveness.
 6. **Dynamic `require(variable)`** present → conservative silence.
 7. **Cycle** (A re-exports B, B re-exports A, no real consumer) → both flagged, no infinite
    loop.
+8. **Next.js page** (`pages/**` with a `next.config.*`) re-exporting `default` → not flagged.
+9. **Barrel reached only via a Next.js page** → not flagged (live through the entry point).
+10. **`pages/` dir without `next.config.*`** → still flagged (not treated as a Next page).
+11. **App Router** reserved file (`app/**/page.tsx`) → not flagged; non-reserved `app/` file →
+    still flagged.
 
 ## Out of scope (YAGNI)
 
@@ -138,4 +162,6 @@ new liveness.
 - A standalone "audit whole project" action/report.
 - Detecting imported-but-locally-unused symbols (that is local dead-code analysis, a
   different and far more false-positive-prone feature).
-- Configurable glob exclusions for entry points.
+- Configurable glob exclusions for entry points (built-in Next.js detection covers the
+  current need; see "Framework entry points" above).
+- Entry-point conventions for other frameworks (Remix, SvelteKit, Astro, Expo Router, etc.).
