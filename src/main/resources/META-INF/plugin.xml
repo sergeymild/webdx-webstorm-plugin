@@ -203,6 +203,31 @@
             displayName="Dead re-export (unused barrel link)"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.deadexports.DeadReExportInspection"/>
+        <localInspection language="TypeScript JSX"
+            shortName="DeadExportTsx"
+            displayName="Unused export (no consumer reaches it)"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.webdx.deadexports.DeadExportInspection"/>
+        <localInspection language="TypeScript"
+            shortName="DeadExportTs"
+            displayName="Unused export (no consumer reaches it)"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.webdx.deadexports.DeadExportInspection"/>
+        <localInspection language="JavaScript"
+            shortName="DeadExportJs"
+            displayName="Unused export (no consumer reaches it)"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.webdx.deadexports.DeadExportInspection"/>
+        <localInspection language="ECMAScript 6"
+            shortName="DeadExportEs6"
+            displayName="Unused export (no consumer reaches it)"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.webdx.deadexports.DeadExportInspection"/>
+        <localInspection language="JSX Harmony"
+            shortName="DeadExportJsxHarmony"
+            displayName="Unused export (no consumer reaches it)"
+            groupName="JavaScript" enabledByDefault="true" level="WARNING"
+            implementationClass="com.webdx.deadexports.DeadExportInspection"/>
     </extensions>
 
     <extensions defaultExtensionNs="JavaScript">
