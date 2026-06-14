@@ -1,0 +1,25 @@
+package com.webdx.deadexports
+
+import com.intellij.testFramework.fixtures.BasePlatformTestCase
+
+class DeadExportInspectionTest : BasePlatformTestCase() {
+
+    private fun descriptionsFor(path: String): List<String> {
+        val file = myFixture.findFileInTempDir(path)
+        myFixture.configureFromExistingVirtualFile(file)
+        myFixture.enableInspections(DeadExportInspection())
+        return myFixture.doHighlighting().mapNotNull { it.description }
+    }
+
+    fun testUnusedInlineValueExportsFlagged() {
+        // SomeFun + Some are exported but reached only by a dead barrel `export *` -> flagged.
+        myFixture.addFileToProject("components/SomeFun.tsx",
+            "export const SomeFun = () => null\nSomeFun.displayName = 'SomeFun'\nexport function Some() {}\n")
+        myFixture.addFileToProject("components/index.ts", "export * from './SomeFun'\n")
+        val descriptions = descriptionsFor("components/SomeFun.tsx")
+        assertTrue("SomeFun should be flagged, got: $descriptions",
+            descriptions.any { it.contains("'SomeFun'") && it.contains("never used") })
+        assertTrue("Some should be flagged, got: $descriptions",
+            descriptions.any { it.contains("'Some'") && it.contains("never used") })
+    }
+}
