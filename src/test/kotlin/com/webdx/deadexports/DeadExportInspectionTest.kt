@@ -1,0 +1,130 @@
+package com.webdx.deadexports
+
+import com.intellij.testFramework.fixtures.BasePlatformTestCase
+
+class DeadExportInspectionTest : BasePlatformTestCase() {
+
+    private fun descriptionsFor(path: String): List<String> {
+        val file = myFixture.findFileInTempDir(path)
+        myFixture.configureFromExistingVirtualFile(file)
+        myFixture.enableInspections(DeadExportInspection())
+        return myFixture.doHighlighting().mapNotNull { it.description }
+    }
+
+    fun testUnusedInlineValueExportsFlagged() {
+        // SomeFun + Some are exported but reached only by a dead barrel `export *` -> flagged.
+        myFixture.addFileToProject("components/SomeFun.tsx",
+            "export const SomeFun = () => null\nSomeFun.displayName = 'SomeFun'\nexport function Some() {}\n")
+        myFixture.addFileToProject("components/index.ts", "export * from './SomeFun'\n")
+        val descriptions = descriptionsFor("components/SomeFun.tsx")
+        assertTrue("SomeFun should be flagged, got: $descriptions",
+            descriptions.any { it.contains("'SomeFun'") && it.contains("never used") })
+        assertTrue("Some should be flagged, got: $descriptions",
+            descriptions.any { it.contains("'Some'") && it.contains("never used") })
+    }
+
+    fun testLiveInlineExportNotFlagged() {
+        // A real named import keeps the export live -> not flagged.
+        myFixture.addFileToProject("components/SomeFun.tsx", "export const SomeFun = () => null\n")
+        myFixture.addFileToProject("components/index.ts", "export * from './SomeFun'\n")
+        myFixture.addFileToProject("use.tsx", "import { SomeFun } from './components'\nconst x = SomeFun\n")
+        val descriptions = descriptionsFor("components/SomeFun.tsx")
+        assertFalse("live export must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("never used") })
+    }
+
+    fun testUnusedDefaultExportFlagged() {
+        myFixture.addFileToProject("widget.tsx", "export default function Widget() { return null }\n")
+        val descriptions = descriptionsFor("widget.tsx")
+        assertTrue("unused default export should be flagged, got: $descriptions",
+            descriptions.any { it.contains("'default'") && it.contains("never used") })
+    }
+
+    fun testNextPageDefaultNotFlagged() {
+        // A Next.js page default is an entry point (next.config present) -> whole file skipped.
+        myFixture.addFileToProject("next.config.js", "module.exports = {}\n")
+        myFixture.addFileToProject("pages/p/index.tsx", "export default function Page() { return null }\n")
+        val descriptions = descriptionsFor("pages/p/index.tsx")
+        assertFalse("Next.js page default must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("never used") })
+    }
+
+    fun testUnusedLocalExportSpecifierFlagged() {
+        // `const local = 1; export { local as pub }` — exported name is `pub`, unused -> flagged.
+        myFixture.addFileToProject("m.ts", "const local = 1\nexport { local as pub }\n")
+        val descriptions = descriptionsFor("m.ts")
+        assertTrue("unused local re-export 'pub' should be flagged, got: $descriptions",
+            descriptions.any { it.contains("'pub'") && it.contains("never used") })
+        assertFalse("must flag the exported name 'pub', not the source 'local', got: $descriptions",
+            descriptions.any { it.contains("'local'") })
+    }
+
+    fun testUsedLocalExportSpecifierNotFlagged() {
+        myFixture.addFileToProject("m.ts", "const local = 1\nexport { local as pub }\n")
+        myFixture.addFileToProject("use.ts", "import { pub } from './m'\nconst x = pub\n")
+        val descriptions = descriptionsFor("m.ts")
+        assertFalse("consumed local re-export must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("never used") })
+    }
+
+    fun testUnusedTypeExportsFlagged() {
+        myFixture.addFileToProject("types.ts",
+            "export interface IFace {}\nexport type TAlias = number\nexport enum E { X }\n")
+        val descriptions = descriptionsFor("types.ts")
+        assertTrue("unused interface should be flagged, got: $descriptions",
+            descriptions.any { it.contains("'IFace'") && it.contains("never used") })
+        assertTrue("unused type alias should be flagged, got: $descriptions",
+            descriptions.any { it.contains("'TAlias'") && it.contains("never used") })
+        assertTrue("unused enum should be flagged, got: $descriptions",
+            descriptions.any { it.contains("'E'") && it.contains("never used") })
+    }
+
+    fun testUsedTypeExportNotFlagged() {
+        myFixture.addFileToProject("types.ts", "export interface IFace { a: number }\n")
+        myFixture.addFileToProject("use.ts", "import type { IFace } from './types'\nconst x: IFace = { a: 1 }\n")
+        val descriptions = descriptionsFor("types.ts")
+        assertFalse("used type must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("never used") })
+    }
+
+    fun testReExportFromNotFlaggedByThisInspection() {
+        // `export { x } from './y'` is a re-export link — owned by DeadReExportInspection, not this one.
+        myFixture.addFileToProject("y.ts", "export const x = 1\n")
+        myFixture.addFileToProject("barrel.ts", "export { x } from './y'\n")
+        val descriptions = descriptionsFor("barrel.ts")
+        assertFalse("DeadExportInspection must NOT flag a `… from` re-export, got: $descriptions",
+            descriptions.any { it.contains("never used") })
+    }
+
+    fun testSameFileOnlyUseStillFlagged() {
+        // `helper` is exported but used only inside its own module; no external consumer -> flagged
+        // (chosen "no external consumer = unused" rule). `Main` is consumed externally -> live.
+        myFixture.addFileToProject("m.ts",
+            "export const helper = () => 1\nexport const Main = () => helper()\n")
+        myFixture.addFileToProject("use.ts", "import { Main } from './m'\nconst x = Main\n")
+        val descriptions = descriptionsFor("m.ts")
+        assertTrue("internally-only-used export must be flagged, got: $descriptions",
+            descriptions.any { it.contains("'helper'") && it.contains("never used") })
+        assertFalse("externally-consumed export must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("'Main'") && it.contains("never used") })
+    }
+
+    fun testAnonymousDefaultExportFlagged() {
+        // Anonymous default -> ES6ExportDefaultAssignment.namedElement is null, anchor falls back
+        // to the element. Must still be flagged under the name 'default'.
+        myFixture.addFileToProject("anon.tsx", "export default () => null\n")
+        val descriptions = descriptionsFor("anon.tsx")
+        assertTrue("anonymous default export should be flagged, got: $descriptions",
+            descriptions.any { it.contains("'default'") && it.contains("never used") })
+    }
+
+    fun testMultipleBindingsEachFlagged() {
+        // `export const A = 1, B = 2` -> two exported bindings, each queried/flagged independently.
+        myFixture.addFileToProject("multi.ts", "export const A = 1, B = 2\n")
+        val descriptions = descriptionsFor("multi.ts")
+        assertTrue("A should be flagged, got: $descriptions",
+            descriptions.any { it.contains("'A'") && it.contains("never used") })
+        assertTrue("B should be flagged, got: $descriptions",
+            descriptions.any { it.contains("'B'") && it.contains("never used") })
+    }
+}
