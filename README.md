@@ -307,6 +307,7 @@ The heart of the resolution logic, all on generic PSI (no TS service):
 | Completion | `completion.contributor` (per JS/TS language, `order="first"`) | `com.intellij` |
 | Unknown/Unused inspections | `localInspection` (per language) | `com.intellij` |
 | Dead re-export inspection | `localInspection` (per JS/TS language) | `com.intellij` |
+| Unused export inspection | `localInspection` (per JS/TS language) | `com.intellij` |
 | Overrides-imported-class inspection | `localInspection` (`language="CSS"` once — covers dialects) | `com.intellij` |
 | `styles.<class>` go-to | `<action id="GotoDeclaration" overrides="true">` (+ unused `gotoDeclarationHandler` / `lang.directNavigationProvider`) | `com.intellij` |
 | `@import` a SCSS symbol | `intentionAction` | `com.intellij` |
@@ -548,6 +549,9 @@ and helpers return empty. Verify in a throwaway test with
 | `CssModuleDirectNavigationTest` | the `DirectNavigationProvider` returns the same single target |
 | `CssModuleNavRealShapeTest` | reproduces the real JSX `className={styles.x}` + `@/`-alias chain + override shape |
 | `CssModuleImportSymbolIntentionTest` | Alt+Enter `@import` intention: alias import for mixin/variable; not offered when imported / unknown |
+| `DeadReExportsTest` | `DeadReExports.Analyzer` reverse reachability: per-name liveness, transitive chains, cycles, `export *` source-aware liveness (named/namespace consumers, dead-among-live, re-export chains) |
+| `DeadReExportInspectionTest` | dead re-export links flagged via real highlighting; aliases, partial barrels, `require`, Next.js entry points, `export *` dead-among-live |
+| `DeadExportInspectionTest` | directly-declared exports (const/function/class, default, local `export { x as y }`, TS types) flagged when no external consumer; live/used not flagged; same-file-only use flagged; Next page default + `… from` re-export not flagged; anonymous default + multi-binding |
 
 > **JSX PSI note:** in a `.tsx`, a `<Trans/>` element is itself a `JSLiteralExpression`
 > subtype (`JSXXmlLiteralExpression`), and the `i18nKey` value is an `XmlAttributeValue`
