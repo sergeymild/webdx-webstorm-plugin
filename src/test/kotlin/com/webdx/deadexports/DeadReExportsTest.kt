@@ -134,6 +134,28 @@ class DeadReExportsTest : BasePlatformTestCase() {
         assertTrue("a is live via the cycle to b's importer -> must not be poisoned by memo", aLive)
     }
 
+    fun testPartialBarrelOnlyImportedNameLive() {
+        // barrel forwards two names; the only consumer imports just one of them.
+        myFixture.addFileToProject("b/x.ts", "export const Live = 1\nexport const Dead = 2\n")
+        myFixture.addFileToProject("b/index.ts", "export { Live, Dead } from './x'\n")
+        myFixture.addFileToProject("use.ts", "import { Live } from './b'\nconst y = Live\n")
+        myFixture.configureByText("trigger.ts", "")
+        val az = analyzer() // ONE shared analyzer across both queries
+        assertTrue("Live is imported -> live", az.isLive(moduleFile("b/index.ts"), "Live"))
+        assertFalse("Dead is never imported -> dead", az.isLive(moduleFile("b/index.ts"), "Dead"))
+    }
+
+    fun testAliasedImportConsumesSourceName() {
+        // `import { Dead as D }` consumes the SOURCE name Dead, not the alias D.
+        myFixture.addFileToProject("b/x.ts", "export const Live = 1\nexport const Dead = 2\n")
+        myFixture.addFileToProject("b/index.ts", "export { Live, Dead } from './x'\n")
+        myFixture.addFileToProject("use.ts", "import { Dead as D } from './b'\nconst y = D\n")
+        myFixture.configureByText("trigger.ts", "")
+        val az = analyzer() // ONE shared analyzer across both queries
+        assertTrue("Dead is imported (as D) -> live", az.isLive(moduleFile("b/index.ts"), "Dead"))
+        assertFalse("Live is never imported -> dead", az.isLive(moduleFile("b/index.ts"), "Live"))
+    }
+
     fun testLiveCycleNotPoisonedByMemoReverseOrder() {
         myFixture.addFileToProject("a.ts", "export { K } from './b'\n")
         myFixture.addFileToProject("b.ts", "export { K } from './a'\nexport const _x = 1\n")

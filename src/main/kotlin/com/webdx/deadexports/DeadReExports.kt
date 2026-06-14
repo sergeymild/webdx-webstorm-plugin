@@ -1,7 +1,9 @@
 package com.webdx.deadexports
 
 import com.intellij.lang.ecmascript6.psi.ES6ExportDeclaration
+import com.intellij.lang.ecmascript6.psi.ES6ImportDeclaration
 import com.intellij.lang.ecmascript6.psi.ES6ImportExportDeclaration
+import com.intellij.lang.ecmascript6.psi.ES6NamespaceImportExport
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
@@ -53,6 +55,36 @@ object DeadReExports {
     }
 
     /**
+     * The set of *source* names a [RefKind.RealConsumer] reference draws from the module,
+     * or [STAR] when it consumes every name. Used at the consumer leaf of [Analyzer.isLive]
+     * to grant liveness only to the names a consumer actually imports — so a barrel
+     * `export { Live, Dead } from './x'` whose only importer is `import { Live }` keeps
+     * `Live` live but lets `Dead` die.
+     *
+     * For an `ES6ImportDeclaration`:
+     *  - `import * as ns` (a namespace import) → [STAR];
+     *  - named imports contribute their SOURCE name (`specifier.referenceName`; for
+     *    `import { Dead as D }` that is `Dead`, not the local alias `D`);
+     *  - a default binding (`import X` / `import X, { … }`) contributes `"default"`;
+     *  - a bare side-effect import `import './x'` contributes nothing (empty set).
+     *
+     * Any reference NOT inside an import (a `require(F)`, `require(F).x`, or dynamic
+     * `import(F)`) is treated conservatively as consuming everything → [STAR]; we do not
+     * narrow `require` member access.
+     */
+    fun consumedNames(refElement: PsiElement): Set<String> {
+        val decl = PsiTreeUtil.getParentOfType(refElement, ES6ImportDeclaration::class.java, false)
+            ?: return setOf(STAR)
+        // `import * as ns` re-exposes the whole module namespace.
+        if (PsiTreeUtil.findChildOfType(decl, ES6NamespaceImportExport::class.java) != null) {
+            return setOf(STAR)
+        }
+        val names = decl.importSpecifiers.mapNotNullTo(HashSet()) { it.referenceName }
+        if (decl.importedBindings.isNotEmpty()) names += "default"
+        return names
+    }
+
+    /**
      * Stateful per-pass analyzer. Holds a memo so repeated `isLive` queries within one
      * inspection pass share work, and a visited set so re-export cycles terminate.
      */
@@ -89,7 +121,10 @@ object DeadReExports {
             var hitCycle = false
             for (ref in ReferencesSearch.search(origin, scope).findAll()) {
                 when (val kind = classify(ref.element)) {
-                    RefKind.RealConsumer -> { live = true; break }
+                    RefKind.RealConsumer -> {
+                        val consumed = consumedNames(ref.element)
+                        if (STAR in consumed || name in consumed) { live = true; break }
+                    }
                     is RefKind.ReExportSite -> {
                         val g = kind.decl.containingFile?.originalFile ?: continue
                         if (forwardsName(kind.decl, name)) {
