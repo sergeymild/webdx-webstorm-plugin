@@ -48,4 +48,22 @@ class DeadExportInspectionTest : BasePlatformTestCase() {
         assertFalse("Next.js page default must NOT be flagged, got: $descriptions",
             descriptions.any { it.contains("never used") })
     }
+
+    fun testUnusedLocalExportSpecifierFlagged() {
+        // `const local = 1; export { local as pub }` — exported name is `pub`, unused -> flagged.
+        myFixture.addFileToProject("m.ts", "const local = 1\nexport { local as pub }\n")
+        val descriptions = descriptionsFor("m.ts")
+        assertTrue("unused local re-export 'pub' should be flagged, got: $descriptions",
+            descriptions.any { it.contains("'pub'") && it.contains("never used") })
+        assertFalse("must flag the exported name 'pub', not the source 'local', got: $descriptions",
+            descriptions.any { it.contains("'local'") })
+    }
+
+    fun testUsedLocalExportSpecifierNotFlagged() {
+        myFixture.addFileToProject("m.ts", "const local = 1\nexport { local as pub }\n")
+        myFixture.addFileToProject("use.ts", "import { pub } from './m'\nconst x = pub\n")
+        val descriptions = descriptionsFor("m.ts")
+        assertFalse("consumed local re-export must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("never used") })
+    }
 }
