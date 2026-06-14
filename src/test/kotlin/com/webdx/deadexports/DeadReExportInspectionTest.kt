@@ -43,6 +43,21 @@ class DeadReExportInspectionTest : BasePlatformTestCase() {
             descriptions.any { it.contains("'Live'") && it.contains("never used") })
     }
 
+    fun testStaticRequireMemberKeepsAllNamesLive() {
+        // Conservative require behavior: a STATIC `require('./b')` resolves to the barrel, and
+        // member access (`.A`) is treated as STAR (consumedNames returns STAR for any non-import
+        // reference). So even though only `.A` is touched, BOTH A and B stay live -> nothing
+        // flagged. This pins the documented conservatism: we never narrow require member access.
+        myFixture.addFileToProject("b/x.ts", "export const A = 1\nexport const B = 2\n")
+        myFixture.addFileToProject("b/index.ts", "export { A, B } from './x'\n")
+        myFixture.addFileToProject("use.ts", "const a = require('./b').A\n")
+        val descriptions = descriptionsFor("b/index.ts")
+        assertFalse("A must NOT be flagged (require member access is STAR), got: $descriptions",
+            descriptions.any { it.contains("'A'") && it.contains("never used") })
+        assertFalse("B must NOT be flagged (require member access is STAR), got: $descriptions",
+            descriptions.any { it.contains("'B'") && it.contains("never used") })
+    }
+
     fun testNonReExportFileNoFlags() {
         myFixture.addFileToProject("plain.ts", "export const a = 1\nconst b = a\n")
         val descriptions = descriptionsFor("plain.ts")

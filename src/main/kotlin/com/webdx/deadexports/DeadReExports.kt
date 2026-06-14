@@ -91,6 +91,11 @@ object DeadReExports {
     class Analyzer(private val project: Project) {
         private val scope = GlobalSearchScope.projectScope(project)
         private val memo = HashMap<Pair<String, String>, Boolean>()
+        // Per-origin-file reference list cache: ReferencesSearch is a project-wide scan, so a
+        // barrel with N specifiers would otherwise re-run the SAME search N times. Keyed on the
+        // same path string used for the memo key. The verdict memo dedupes by (path, name); this
+        // dedupes the underlying search by path.
+        private val refsCache = HashMap<String, List<com.intellij.psi.PsiReference>>()
 
         /**
          * Result of one recursive [isLive] computation: the liveness verdict plus whether
@@ -111,7 +116,8 @@ object DeadReExports {
             // NOTE: fall back to origin.name only when there is no backing file (in-memory
             // PSI in tests). Two distinct same-named in-memory files could collide here, but
             // real project files always carry a virtualFile path, so this is test-only.
-            val key = (origin.virtualFile?.path ?: origin.name) to name
+            val pathKey = origin.virtualFile?.path ?: origin.name
+            val key = pathKey to name
             memo[key]?.let { return Result(it, false) }
             // Cycle: revisiting an in-progress ancestor. Return a provisional `false` and
             // signal hitCycle so the *caller* won't cache an unproven negative as final.
@@ -119,7 +125,10 @@ object DeadReExports {
 
             var live = false
             var hitCycle = false
-            for (ref in ReferencesSearch.search(origin, scope).findAll()) {
+            val refs = refsCache.getOrPut(pathKey) {
+                ReferencesSearch.search(origin, scope).findAll().toList()
+            }
+            for (ref in refs) {
                 when (val kind = classify(ref.element)) {
                     RefKind.RealConsumer -> {
                         val consumed = consumedNames(ref.element)

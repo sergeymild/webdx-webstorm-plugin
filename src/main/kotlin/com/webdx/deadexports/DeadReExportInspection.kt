@@ -35,7 +35,20 @@ class DeadReExportInspection : LocalInspectionTool() {
                     val sourceName = spec.referenceName ?: continue
                     if (!analyzer.isLive(moduleFile, sourceName)) {
                         val displayName = spec.declaredName ?: sourceName
-                        holder.registerProblem(spec as PsiElement, "Re-export '$displayName' is never used (no consumer reaches it)",
+                        // Anchor on the exported-name identifier rather than the whole specifier:
+                        // for `X as Y` the alias's nameIdentifier is `Y`; with no alias the
+                        // referenceNameElement is the single name that is both source and export.
+                        // Verified against the SDK (javascript-plugin.jar): ES6ExportSpecifier is a
+                        // JSPsiNamedElementBase (PsiNamedElement, NOT PsiNameIdentifierOwner) but a
+                        // JSPsiReferenceElement, so getReferenceNameElement() yields the name PSI;
+                        // getAlias() is an ES6ExportSpecifierAlias (a JSNamedElement →
+                        // PsiNameIdentifierOwner) whose nameIdentifier is the exported alias.
+                        // Fall back to the specifier itself if neither is available. The
+                        // `spec as PsiElement` cast selects the PsiElement overload of
+                        // registerProblem (ES6ExportSpecifier is also a PsiReference).
+                        val anchor: PsiElement =
+                            spec.alias?.nameIdentifier ?: spec.referenceNameElement ?: (spec as PsiElement)
+                        holder.registerProblem(anchor, "Re-export '$displayName' is never used (no consumer reaches it)",
                             ProblemHighlightType.LIKE_UNUSED_SYMBOL)
                     }
                 }
