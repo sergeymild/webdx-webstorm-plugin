@@ -113,16 +113,20 @@ object DeadReExports {
 
         private fun isLive(moduleFile: PsiFile, name: String, visited: MutableSet<Pair<String, String>>): Result {
             val origin = moduleFile.originalFile
-            // A Next.js entry point is consumed by the framework (no explicit importer exists), so it —
-            // and any name it re-exports — is always live. This also covers barrels reached only via a page,
-            // because forwardsName-gated recursion lands here on the entry-point file.
-            if (NextEntryPoints.isEntryPoint(origin)) return Result(live = true, hitCycle = false)
             // NOTE: fall back to origin.name only when there is no backing file (in-memory
             // PSI in tests). Two distinct same-named in-memory files could collide here, but
             // real project files always carry a virtualFile path, so this is test-only.
             val pathKey = origin.virtualFile?.path ?: origin.name
             val key = pathKey to name
             memo[key]?.let { return Result(it, false) }
+            // A Next.js entry point is consumed by the framework (no explicit importer exists), so it —
+            // and any name it re-exports — is always live. This also covers barrels reached only via a page,
+            // because forwardsName-gated recursion lands here on the entry-point file. Checked after the
+            // memo lookup so the verdict is cached and the VFS walk isn't repeated for revisited nodes.
+            if (NextEntryPoints.isEntryPoint(origin)) {
+                memo[key] = true
+                return Result(live = true, hitCycle = false)
+            }
             // Cycle: revisiting an in-progress ancestor. Return a provisional `false` and
             // signal hitCycle so the *caller* won't cache an unproven negative as final.
             if (!visited.add(key)) return Result(live = false, hitCycle = true)
