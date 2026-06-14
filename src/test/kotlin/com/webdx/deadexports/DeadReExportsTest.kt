@@ -116,4 +116,34 @@ class DeadReExportsTest : BasePlatformTestCase() {
         myFixture.configureByText("trigger.ts", "")
         assertTrue(analyzer().isLive(moduleFile("a/index.ts"), "Screen"))
     }
+
+    // Regression: a LIVE 2-cycle (a <-> b) with a real consumer importing b directly.
+    // A shared Analyzer must not cache a's `false` that was only produced by the cycle
+    // cutoff (visited-guard) while b was an in-progress ancestor. Both query orders must
+    // see both nodes as live. See DeadReExports.isLive's hitCycle plumbing.
+    fun testLiveCycleNotPoisonedByMemo() {
+        myFixture.addFileToProject("a.ts", "export { K } from './b'\n")
+        myFixture.addFileToProject("b.ts", "export { K } from './a'\nexport const _x = 1\n")
+        myFixture.addFileToProject("use.ts", "import { K } from './b'\nconst y = K\n")
+        myFixture.configureByText("trigger.ts", "")
+        val az = analyzer() // ONE shared analyzer across both queries
+        // query b first (the directly-imported node), then a (reached only via the cycle)
+        val bLive = az.isLive(moduleFile("b.ts"), "K")
+        val aLive = az.isLive(moduleFile("a.ts"), "K")
+        assertTrue("b is imported directly -> live", bLive)
+        assertTrue("a is live via the cycle to b's importer -> must not be poisoned by memo", aLive)
+    }
+
+    fun testLiveCycleNotPoisonedByMemoReverseOrder() {
+        myFixture.addFileToProject("a.ts", "export { K } from './b'\n")
+        myFixture.addFileToProject("b.ts", "export { K } from './a'\nexport const _x = 1\n")
+        myFixture.addFileToProject("use.ts", "import { K } from './b'\nconst y = K\n")
+        myFixture.configureByText("trigger.ts", "")
+        val az = analyzer() // ONE shared analyzer across both queries
+        // query a first (reached only via the cycle), then b (directly imported)
+        val aLive = az.isLive(moduleFile("a.ts"), "K")
+        val bLive = az.isLive(moduleFile("b.ts"), "K")
+        assertTrue("a is live via the cycle to b's importer -> must not be poisoned by memo", aLive)
+        assertTrue("b is imported directly -> live", bLive)
+    }
 }

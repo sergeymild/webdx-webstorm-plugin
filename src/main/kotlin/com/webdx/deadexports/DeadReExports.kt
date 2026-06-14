@@ -60,17 +60,33 @@ object DeadReExports {
         private val scope = GlobalSearchScope.projectScope(project)
         private val memo = HashMap<Pair<String, String>, Boolean>()
 
+        /**
+         * Result of one recursive [isLive] computation: the liveness verdict plus whether
+         * that verdict was (transitively) influenced by a cycle cutoff against an
+         * in-progress ancestor. A `false` verdict that [hitCycle] only because the
+         * visited-guard short-circuited an ancestor is *provisional* — it holds for this
+         * traversal but is NOT a final answer, so it must not be memoized for later
+         * top-level queries. A `true` verdict is always final regardless of [hitCycle].
+         */
+        private data class Result(val live: Boolean, val hitCycle: Boolean)
+
         /** Is [name] (a name exported by [moduleFile]) reached by any real consumer? */
         fun isLive(moduleFile: PsiFile, name: String): Boolean =
-            isLive(moduleFile, name, HashSet())
+            isLive(moduleFile, name, HashSet()).live
 
-        private fun isLive(moduleFile: PsiFile, name: String, visited: MutableSet<Pair<String, String>>): Boolean {
+        private fun isLive(moduleFile: PsiFile, name: String, visited: MutableSet<Pair<String, String>>): Result {
             val origin = moduleFile.originalFile
+            // NOTE: fall back to origin.name only when there is no backing file (in-memory
+            // PSI in tests). Two distinct same-named in-memory files could collide here, but
+            // real project files always carry a virtualFile path, so this is test-only.
             val key = (origin.virtualFile?.path ?: origin.name) to name
-            memo[key]?.let { return it }
-            if (!visited.add(key)) return false // cycle: this path contributes no new liveness
+            memo[key]?.let { return Result(it, false) }
+            // Cycle: revisiting an in-progress ancestor. Return a provisional `false` and
+            // signal hitCycle so the *caller* won't cache an unproven negative as final.
+            if (!visited.add(key)) return Result(live = false, hitCycle = true)
 
             var live = false
+            var hitCycle = false
             for (ref in ReferencesSearch.search(origin, scope).findAll()) {
                 when (val kind = classify(ref.element)) {
                     RefKind.RealConsumer -> { live = true; break }
@@ -78,15 +94,23 @@ object DeadReExports {
                         val g = kind.decl.containingFile?.originalFile ?: continue
                         if (forwardsName(kind.decl, name)) {
                             for (forwarded in forwardedAs(kind.decl, name)) {
-                                if (isLive(g, forwarded, visited)) { live = true; break }
+                                val child = isLive(g, forwarded, visited)
+                                if (child.hitCycle) hitCycle = true
+                                if (child.live) { live = true; break }
                             }
                         }
                         if (live) break
                     }
                 }
             }
-            memo[key] = live
-            return live
+            // Only cache trustworthy verdicts: any positive result, or a negative that
+            // completed WITHOUT hitting a cycle cutoff. A negative reached only via a cycle
+            // cutoff is conditional on an ancestor still on the stack and must not poison
+            // later queries that start from a different root.
+            if (live || !hitCycle) memo[key] = live
+            // Once this node resolved to live (or to a clean dead), it no longer depends on
+            // the in-progress ancestor, so don't propagate hitCycle further up.
+            return Result(live, hitCycle = hitCycle && !live)
         }
 
         /** Does this re-export site forward our source [name] (directly or via `export *`)? */
