@@ -16,6 +16,7 @@
 - PSI: `#{$sidebar}` is a `CssSimpleSelector` whose text is `#{$sidebar}`; `&__search` / `&--expanded` / `#{$sidebar}__search` are each a `CssSimpleSelector` whose `.text` is the raw selector. A `CssRuleset` exposes its selectors via `getSelectors(): CssSelector[]`; a `CssSelector` contains `CssSimpleSelector` children (the subject is the last one).
 - `CssModules.collectClassNames(file)` is the single feeder: completion uses it through `collectClassOrigins`; the unknown-class inspection uses it through `cssModuleBindings` → `collectAllClassNames`; Find Usages and the unused inspection use it through `collectUsedClassNames` (which keys member matching on `collectClassNames`). So adding bam names there lights up completion + unknown-class + the "used" matching automatically. Only the **CSS-side declaration targeting** (go-to, the unused visitor, Find-Usages `canFindUsages`) needs extra per-feature wiring, because those look for `CssClass` elements that don't exist for bam.
 - `$var` values are read by regex (like the existing `scssImportPaths`/`scssDefinedSymbols`), so no compile dependency on Sass-plugin PSI classes is added.
+- **Cross-file `$var`:** the resolver also pulls string vars from files the module **directly** `@import`s / `@use`s, reusing `CssModules.resolveImportPath`. The real codebase writes `@import './vars.scss';` (bare) and `@use "…/vars.scss" as v;` (aliased) — both with extension. Three reference forms are supported: bare (`@import`, `@use … as *`) → `#{$var}`; default-namespace (`@use 'vars'`) → `#{vars.$var}`; alias (`@use … as v`) → `#{v.$var}`. Only direct imports; `@forward`/transitive chains are not followed.
 
 Run all tests with:
 ```bash
@@ -109,6 +110,35 @@ class BamSelectorsTest : BasePlatformTestCase() {
         )
         assertTrue(BamSelectors.bamClassDeclarations(scss).isEmpty())
     }
+
+    // --- cross-file imported variables -------------------------------------
+
+    fun testResolvesImportedBareVar() {
+        myFixture.addFileToProject("src/vars.scss", "${'$'}sidebar: '.sidebar';")
+        val scss = myFixture.addFileToProject(
+            "src/Bam.module.scss",
+            "@import './vars.scss';\n#{${'$'}sidebar} {\n  &__search { display: none; }\n}",
+        )
+        assertEquals(setOf("sidebar", "sidebar__search"), BamSelectors.bamClassDeclarations(scss).keys)
+    }
+
+    fun testResolvesAliasedUseVar() {
+        myFixture.addFileToProject("src/vars.scss", "${'$'}sidebar: '.sidebar';")
+        val scss = myFixture.addFileToProject(
+            "src/Bam.module.scss",
+            "@use './vars.scss' as v;\n#{v.${'$'}sidebar} {\n  &__search { display: none; }\n}",
+        )
+        assertEquals(setOf("sidebar", "sidebar__search"), BamSelectors.bamClassDeclarations(scss).keys)
+    }
+
+    fun testResolvesDefaultNamespaceUseVar() {
+        myFixture.addFileToProject("src/vars.scss", "${'$'}sidebar: '.sidebar';")
+        val scss = myFixture.addFileToProject(
+            "src/Bam.module.scss",
+            "@use './vars.scss';\n#{vars.${'$'}sidebar} {\n  &__search { display: none; }\n}",
+        )
+        assertEquals(setOf("sidebar", "sidebar__search"), BamSelectors.bamClassDeclarations(scss).keys)
+    }
 }
 ```
 
@@ -124,6 +154,9 @@ Create `src/main/kotlin/com/webdx/cssmodules/BamSelectors.kt`:
 ```kotlin
 package com.webdx.cssmodules
 
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.VfsUtilCore
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.css.CssRuleset
@@ -138,22 +171,32 @@ import com.intellij.psi.util.PsiTreeUtil
  * raw `CssSimpleSelector`s with no `CssClass` node: a string `$var` used as a
  * selector via `#{$var}` interpolation, plus `&` BEM concatenation (`&__el`,
  * `&--mod`). Reads top-level string `$var` values by regex (no Sass-plugin PSI
- * dependency) and walks the `CssRuleset` nesting, resolving `#{$var}` -> the
- * variable's value and `&` -> the parent ruleset's resolved selector.
+ * dependency) and walks the `CssRuleset` nesting, resolving `#{$var}` /
+ * `#{ns.$var}` -> the variable's value and `&` -> the parent ruleset's resolved
+ * selector.
  *
- * Scope (matches the BamExample pattern): top-level string variables defined in the
- * SAME file; `#{$var}` interpolation; `&` nesting against an interpolated OR literal
- * (`.foo`) parent; any nesting depth. Out of scope (the selector is simply omitted,
- * never guessed): `$var` imported from another file, `@each`/`@for`, Sass maps,
- * non-string values.
+ * Variables come from this file AND from files it DIRECTLY `@import`s / `@use`s:
+ * bare (`@import`, `@use … as *`) -> `#{$var}`; default-namespaced (`@use 'vars'`)
+ * -> `#{vars.$var}`; aliased (`@use … as v`) -> `#{v.$var}`.
+ *
+ * Scope: top-level string variables in this file or a directly imported file; `&`
+ * nesting against an interpolated OR literal (`.foo`) parent; any nesting depth.
+ * Out of scope (selector simply omitted, never guessed): transitive/`@forward`
+ * variable reach, `@each`/`@for`, Sass maps, non-string values.
  */
 internal object BamSelectors {
 
     // Top-level `$name: '.value';` (single- or double-quoted). Mirrors the regex
     // style of CssModules.scssImportPaths / scssDefinedSymbols.
     private val STRING_VAR = Regex("""(?m)^\s*\$([\w-]+)\s*:\s*['"]([^'"]+)['"]\s*;?""")
-    private val INTERP = Regex("""#\{\s*\$([\w-]+)\s*}""")
+    // `#{$name}` or `#{ns.$name}`.
+    private val INTERP = Regex("""#\{\s*(?:([A-Za-z_][\w-]*)\.)?\$([\w-]+)\s*}""")
     private val CLASS_TOKEN = Regex("""\.([A-Za-z0-9_-]+)""")
+    // `@use 'path' [as alias|*]`.
+    private val SCSS_USE = Regex("""@use\s+['"]([^'"]+)['"](?:\s+as\s+([\w*-]+))?""")
+    // `@import '<one or more quoted paths>'`.
+    private val SCSS_IMPORT = Regex("""@import\s+([^;{}\n]*)""")
+    private val QUOTED = Regex("""['"]([^'"]+)['"]""")
 
     /** Subject class name -> the `CssSimpleSelector` that declares it (first wins). Cached. */
     fun bamClassDeclarations(moduleFile: PsiFile): Map<String, PsiElement> =
@@ -173,7 +216,7 @@ internal object BamSelectors {
     }
 
     private fun compute(file: PsiFile): Map<String, PsiElement> {
-        val vars = STRING_VAR.findAll(file.text).associate { it.groupValues[1] to it.groupValues[2] }
+        val vars = collectVariables(file)
         val out = LinkedHashMap<String, PsiElement>()
         for (ruleset in PsiTreeUtil.collectElementsOfType(file, CssRuleset::class.java)) {
             val resolved = resolveRuleset(ruleset, vars, 0) ?: continue
@@ -182,6 +225,59 @@ internal object BamSelectors {
             out.putIfAbsent(cls, subject)
         }
         return out
+    }
+
+    /** Local string vars (bare keys) + string vars from directly imported SCSS files. */
+    private fun collectVariables(file: PsiFile): Map<String, String> {
+        val out = HashMap<String, String>()
+        for (m in STRING_VAR.findAll(file.text)) out.putIfAbsent(m.groupValues[1], m.groupValues[2])
+
+        val dir = file.virtualFile?.parent ?: return out
+        val project = file.project
+        for ((path, namespace) in scssVarImports(file.text)) {
+            val vf = resolveScssImport(dir, project, path) ?: continue
+            val text = runCatching { VfsUtilCore.loadText(vf) }.getOrNull() ?: continue
+            for (m in STRING_VAR.findAll(text)) {
+                val key = if (namespace == null) m.groupValues[1] else "$namespace.${m.groupValues[1]}"
+                out.putIfAbsent(key, m.groupValues[2])
+            }
+        }
+        return out
+    }
+
+    /** Each `@use`/`@import` as (path, namespace?). namespace == null means bare/global. */
+    private fun scssVarImports(text: String): List<Pair<String, String?>> {
+        val out = ArrayList<Pair<String, String?>>()
+        for (m in SCSS_USE.findAll(text)) {
+            val path = m.groupValues[1]
+            val asName = m.groupValues[2]
+            val namespace = when {
+                asName.isEmpty() -> defaultNamespace(path) // `@use 'vars'` -> `vars`
+                asName == "*" -> null                       // `@use 'vars' as *` -> global
+                else -> asName                              // `@use 'vars' as v` -> `v`
+            }
+            out.add(path to namespace)
+        }
+        for (m in SCSS_IMPORT.findAll(text)) {
+            for (q in QUOTED.findAll(m.groupValues[1])) out.add(q.groupValues[1] to null)
+        }
+        return out
+    }
+
+    /** `@use` default namespace: basename without directory, extension, or leading `_`. */
+    private fun defaultNamespace(path: String): String =
+        path.substringAfterLast('/').substringBeforeLast('.').removePrefix("_")
+
+    /** Resolve a `@use`/`@import` path, trying Sass partial conventions when needed. */
+    private fun resolveScssImport(dir: VirtualFile, project: Project, path: String): VirtualFile? {
+        CssModules.resolveImportPath(dir, project, path)?.let { return it }
+        val parent = path.substringBeforeLast('/', "")
+        val base = path.substringAfterLast('/')
+        for (candidate in listOf("$base.scss", "_$base.scss", "$base.sass", "_$base.sass")) {
+            val p = if (parent.isEmpty()) candidate else "$parent/$candidate"
+            CssModules.resolveImportPath(dir, project, p)?.let { return it }
+        }
+        return null
     }
 
     /** Resolved text of [ruleset]'s first selector: `#{$var}` substituted, `&` -> parent. */
@@ -197,10 +293,15 @@ internal object BamSelectors {
         return text
     }
 
-    /** Replace every `#{$var}` with its value; return null if any variable is unknown. */
+    /** Replace every `#{$var}` / `#{ns.$var}` with its value; null if any is unknown. */
     private fun substituteInterpolations(text: String, vars: Map<String, String>): String? {
         var unresolved = false
-        val result = INTERP.replace(text) { m -> vars[m.groupValues[1]] ?: run { unresolved = true; "" } }
+        val result = INTERP.replace(text) { m ->
+            val ns = m.groupValues[1]
+            val name = m.groupValues[2]
+            val key = if (ns.isEmpty()) name else "$ns.$name"
+            vars[key] ?: run { unresolved = true; "" }
+        }
         return if (unresolved) null else result
     }
 
@@ -655,10 +756,12 @@ At the top of `CHANGELOG.md` (above `## 1.7.0`), add:
   complete after `styles.`, are not flagged "unknown", go-to-declaration lands on the
   bam selector, the unused-class inspection greys dead ones, and scoped Find Usages
   works on them. Plain nested BEM with a literal parent (`.foo { &__bar {} }`) is
-  covered too. Resolved from source PSI (no `CssClass` node exists for these). Scope:
-  top-level string variables in the same file; out of scope (selector simply omitted,
-  never guessed): cross-file `$var` imports, `@each`/`@for`, Sass maps, non-string
-  values. (`BamSelectors`, widened `CssModules.collectClassNames`,
+  covered too. The block variable may be defined locally or in a directly
+  `@import`/`@use`-d file (bare `#{$var}`, default-namespaced `#{vars.$var}`, or
+  aliased `@use … as v` → `#{v.$var}`). Resolved from source PSI (no `CssClass` node
+  exists for these). Out of scope (selector simply omitted, never guessed):
+  transitive/`@forward` variable reach, `@each`/`@for`, Sass maps, non-string values.
+  (`BamSelectors`, widened `CssModules.collectClassNames`,
   `CssModuleClassNavigation`, `CssModuleUnusedClassInspection`,
   `CssModuleFindUsagesHandlerFactory`.)
 ```
@@ -673,9 +776,10 @@ In `README.md`, in the CSS Modules feature list, add after feature 6 (the unused
    #{$sidebar} { &__search {} }` → `sidebar`, `sidebar__search`) have no `CssClass`
    node, so they were invisible. They are now resolved from source PSI and treated
    like real classes by completion, the unknown/unused inspections, go-to, and Find
-   Usages. Plain literal-parent BEM (`.foo { &__bar {} }`) is covered too. Limited to
-   top-level string variables in the same file (cross-file `$var`, `@each`, Sass maps
-   are out of scope).
+   Usages. Plain literal-parent BEM (`.foo { &__bar {} }`) is covered too. The block
+   variable may be local or imported from a directly `@import`/`@use`-d file (bare
+   `#{$var}`, default-namespaced `#{vars.$var}`, aliased `#{v.$var}`). Out of scope:
+   transitive/`@forward` reach, `@each`/`@for`, Sass maps, non-string values.
    → `BamSelectors`, `CssModules.collectClassNames`
 ```
 
@@ -702,6 +806,7 @@ git commit -m "docs(bam): document interpolated/&-nested BEM support; bump to 1.
 
 - **Spec coverage:** resolver (Task 1) ✓; `bamClassForElement` (Task 2) ✓; completion + unknown-class via `collectClassNames` (Task 3) ✓; go-to (Task 4) ✓; unused (Task 5) ✓; Find Usages (Task 6) ✓; docs + limitations (Task 7) ✓. The "literal-parent BEM bonus" from the spec is covered by Task 1 `testLiteralParentBemIsResolved` and exercised again in inspections.
 - **Type consistency:** `bamClassDeclarations(PsiFile): Map<String, PsiElement>` and `bamClassForElement(PsiElement): String?` are used with those exact signatures in Tasks 3-6.
-- **No Sass-plugin dependency:** variables are read by `STRING_VAR` regex on `file.text`; only base CSS PSI types (`CssRuleset`, `CssSelector` via `getSelectors()`, `CssSimpleSelector`) are referenced — all in `com.intellij.psi.css`, already a dependency.
+- **No Sass-plugin dependency:** variables are read by `STRING_VAR` regex on `file.text` (local) and on imported files' text via `VfsUtilCore.loadText`; only base CSS PSI types (`CssRuleset`, `CssSelector` via `getSelectors()`, `CssSimpleSelector`) are referenced — all in `com.intellij.psi.css`, already a dependency. Import resolution reuses `CssModules.resolveImportPath` plus a Sass partial fallback (`_name`/`.scss`/`.sass`).
+- **Cross-file `$var` (both forms):** covered by `collectVariables`/`scssVarImports`/`defaultNamespace` in Task 1 and the three cross-file tests (`testResolvesImportedBareVar`, `testResolvesAliasedUseVar`, `testResolvesDefaultNamespaceUseVar`). Real codebase forms (`@import './vars.scss'`, `@use '…/vars.scss' as v`) are both handled.
 - **Adapt-to-sibling caveats:** Task 3 Step 5 (completion helper) and Task 6 (Find Usages helper) must match the exact helper methods used by the existing sibling tests — read those files before writing the new test method.
 ```

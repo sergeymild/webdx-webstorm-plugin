@@ -58,9 +58,10 @@ Resolving `&` against a literal-class parent fixes that case too, at no extra co
 ## Approach
 
 A small PSI-based SCSS **selector resolver** (`BamSelectors`) that:
-- reads top-level string `$var` values,
+- reads top-level string `$var` values — both **locally defined** and **imported** from
+  directly `@import`/`@use`-d SCSS files (namespaced for `@use 'x'` → `x.$var`),
 - walks the ruleset nesting resolving `&` (→ parent's resolved selector) and `#{$var}`
-  (→ the variable's string value),
+  / `#{ns.$var}` (→ the variable's string value),
 - extracts class-name tokens, and pairs each with the `CssSimpleSelector` element that
   declares it.
 
@@ -89,17 +90,34 @@ Public API:
 
 ### Resolution algorithm
 
-1. **Variable table.** Collect top-level `SassScssVariableDeclaration`s in the file →
-   `Map<varName, stringValue>`. The value is the content of the declaration's
-   `CssString` with surrounding quotes stripped. The value may already contain a leading
-   `.` (`'.sidebar'`) or not (`'sidebar'`) — both are handled because class extraction
-   runs on the *final resolved selector text* (step 4), not on the raw value.
-   Non-string-valued variables are ignored.
+1. **Variable table.** Collect top-level string `$var` definitions by regex
+   (`^\s*$name\s*:\s*'…'`) — the same regex style as `CssModules.scssImportPaths` /
+   `scssDefinedSymbols`, so **no compile dependency on the Sass-plugin PSI classes** is
+   added. The value is the quoted string content (quotes stripped); it may already
+   contain a leading `.` (`'.sidebar'`) or not (`'sidebar'`) — both work because class
+   extraction runs on the *final resolved selector text* (step 4), not the raw value.
+   Non-string-valued variables (px/colors) simply don't match and are ignored.
+
+   The table is built from two sources, keyed by how the selector references the
+   variable:
+   - **Local** vars in this file → keyed by bare name (`sidebar`).
+   - **Imported** vars from each file the module **directly** `@import`s or `@use`s
+     (resolved via `CssModules.resolveImportPath`, with Sass partial fallbacks
+     `_name` / `.scss` / `.sass`):
+     - `@import 'vars'` and `@use 'vars' as *` → global, keyed by bare name (`sidebar`),
+       referenced as `#{$sidebar}`.
+     - `@use 'vars'` → namespaced by the file's basename (`vars`), keyed `vars.sidebar`,
+       referenced as `#{vars.$sidebar}`.
+     - `@use 'vars' as v` → namespaced by the alias (`v`), keyed `v.sidebar`,
+       referenced as `#{v.$sidebar}`.
+   Only **direct** imports are followed (not transitive chains); `@forward` is not
+   followed. Cross-file edits invalidate the cache via the project-wide
+   `PsiModificationTracker.MODIFICATION_COUNT`.
 
 2. **Own resolved selector, per ruleset.** For each `CssRuleset`, compute the resolved
    text of its own `CssSelector`(s):
-   - substitute each `#{$var}` interpolation with the variable's value (skip the selector
-     if the variable is unknown / non-string);
+   - substitute each `#{$var}` / `#{ns.$var}` interpolation with the variable's value
+     (skip the selector if the variable is unknown / non-string);
    - if the raw selector text contains `&`, replace each `&` with the parent ruleset's
      own resolved selector text (recursive walk up the ruleset nesting);
    - a nested selector with no `&` is an absolute/descendant selector — its own compound
@@ -157,13 +175,17 @@ they recognize.
 
 In scope (covers `BamExample.module.scss` fully):
 - top-level string `$var` defined in the **same** module file;
-- `#{$var}` interpolation in selectors;
+- top-level string `$var` defined in a file the module **directly** `@import`s or `@use`s
+  (bare `@import` / `@use … as *`, namespaced `@use 'vars'` → `#{vars.$var}`, aliased
+  `@use … as v` → `#{v.$var}`);
+- `#{$var}` / `#{ns.$var}` interpolation in selectors;
 - `&` BEM concatenation (`&__el`, `&--mod`) with interpolated **or** literal-class parents;
 - arbitrary nesting depth.
 
 Out of scope (documented limitations; resolver leaves these selectors invisible, never
 wrong):
-- `$var` imported via `@use` / `@import` / `@forward` from another file;
+- `$var` reached only **transitively** (a `@use`/`@import` of a file that itself imports
+  the vars), or re-exported via `@forward`;
 - `@each` / `@for` loops, Sass maps, function-computed selector fragments;
 - non-string variable values.
 
@@ -179,7 +201,9 @@ Following existing test patterns (`BasePlatformTestCase`, real WebStorm SDK, no 
   `sidebar__mobile-toggle`, `sidebar__content` from a nested `#{$var}__content`); each maps
   to a `CssSimpleSelector` whose text is the raw selector; literal-parent BEM
   (`.foo { &__bar {} }`) yields `foo__bar`; pseudo selectors yield nothing; an unknown
-  variable yields nothing (no crash).
+  variable yields nothing (no crash). **Cross-file:** an imported `$var` resolves via bare
+  `@import './vars.scss'`, via aliased `@use './vars.scss' as v` (`#{v.$var}`), and via
+  default-namespace `@use './vars.scss'` (`#{vars.$var}`).
 - **`CssModuleInspectionTest` additions:** a `styles.sidebar__search` is **not** flagged
   unknown; an unused bam class is greyed; a used one is not.
 - **`CssModuleCompletionTest` addition:** `styles.` completion offers bam names.
