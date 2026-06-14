@@ -199,6 +199,35 @@ behave correctly where the service treats `styles.<key>` as an untyped member.
     and only when no such binding is already available in the file.
     → `RnStyleImportCompletion`
 
+### Dead re-exports / dead barrels (`com.webdx.deadexports`)
+
+17. **"Dead re-export" inspection.** A re-export (`export { X } from './x'`,
+    `export { default } from`, `export * from`) is greyed as unused when **no real
+    consumer reaches that name** — not just directly, but transitively through chains of
+    re-exports. A "real consumer" is any non-re-export reference (`import { X }`,
+    `import * as`, `require(F)`, `require(F).X`, dynamic `import(F)`); an `export … from`
+    that itself nobody consumes does not count. So a barrel that only forwards a symbol the
+    actual code reaches by a different path (e.g. a deep `require('@/screens/.../Screen')`
+    that bypasses the `index.ts`) is correctly flagged, even though every `export … from`
+    link *looks* like a usage to the platform.
+
+    Per **exported name** (so a 10-line barrel flags exactly the dead links), with the
+    source-vs-exported name handled correctly for aliases (`export { Inner as Outer }` is
+    keyed on `Outer`, the name consumers import). The reachability search uses the IDE's own
+    module resolution, so `@/` path aliases and `require()` are followed automatically.
+
+    **Conservative by design:** anything not positively identified as a re-export keeps the
+    name live (`import * as`, whole-module `require(F)`, and any unresolvable/dynamic
+    reference → all names stay live), so it errs toward silence rather than a false "dead".
+
+    **Framework entry points.** Files Next.js loads by file-system convention — everything
+    under `pages/`/`src/pages/` (incl. `pages/api`, `_app`, `_document`, `_error`) and App
+    Router `app/` files with a reserved basename (`page`, `layout`, `route`, …) — have no
+    explicit importer, so they (and any barrel reached only through them) are treated as
+    always live and never flagged. Gated on a `next.config.*` so non-Next projects with a
+    `pages/` folder are unaffected.
+    → `DeadReExportInspection`, `DeadReExports` (reachability), `NextEntryPoints` (entry points)
+
 ---
 
 ## Architecture / where each thing lives
@@ -263,6 +292,7 @@ The heart of the resolution logic, all on generic PSI (no TS service):
 | Find Usages | `findUsagesHandlerFactory` (`order="first"`) | `com.intellij` |
 | Completion | `completion.contributor` (per JS/TS language, `order="first"`) | `com.intellij` |
 | Unknown/Unused inspections | `localInspection` (per language) | `com.intellij` |
+| Dead re-export inspection | `localInspection` (per JS/TS language) | `com.intellij` |
 | Overrides-imported-class inspection | `localInspection` (`language="CSS"` once — covers dialects) | `com.intellij` |
 | `styles.<class>` go-to | `<action id="GotoDeclaration" overrides="true">` (+ unused `gotoDeclarationHandler` / `lang.directNavigationProvider`) | `com.intellij` |
 | `@import` a SCSS symbol | `intentionAction` | `com.intellij` |
