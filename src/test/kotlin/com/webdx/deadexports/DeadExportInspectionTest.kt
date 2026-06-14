@@ -108,4 +108,23 @@ class DeadExportInspectionTest : BasePlatformTestCase() {
         assertFalse("externally-consumed export must NOT be flagged, got: $descriptions",
             descriptions.any { it.contains("'Main'") && it.contains("never used") })
     }
+
+    fun testAnonymousDefaultExportFlagged() {
+        // Anonymous default -> ES6ExportDefaultAssignment.namedElement is null, anchor falls back
+        // to the element. Must still be flagged under the name 'default'.
+        myFixture.addFileToProject("anon.tsx", "export default () => null\n")
+        val descriptions = descriptionsFor("anon.tsx")
+        assertTrue("anonymous default export should be flagged, got: $descriptions",
+            descriptions.any { it.contains("'default'") && it.contains("never used") })
+    }
+
+    fun testMultipleBindingsEachFlagged() {
+        // `export const A = 1, B = 2` -> two exported bindings, each queried/flagged independently.
+        myFixture.addFileToProject("multi.ts", "export const A = 1, B = 2\n")
+        val descriptions = descriptionsFor("multi.ts")
+        assertTrue("A should be flagged, got: $descriptions",
+            descriptions.any { it.contains("'A'") && it.contains("never used") })
+        assertTrue("B should be flagged, got: $descriptions",
+            descriptions.any { it.contains("'B'") && it.contains("never used") })
+    }
 }
