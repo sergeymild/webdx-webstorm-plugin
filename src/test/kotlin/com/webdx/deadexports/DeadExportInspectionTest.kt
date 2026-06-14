@@ -66,4 +66,33 @@ class DeadExportInspectionTest : BasePlatformTestCase() {
         assertFalse("consumed local re-export must NOT be flagged, got: $descriptions",
             descriptions.any { it.contains("never used") })
     }
+
+    fun testUnusedTypeExportsFlagged() {
+        myFixture.addFileToProject("types.ts",
+            "export interface IFace {}\nexport type TAlias = number\nexport enum E { X }\n")
+        val descriptions = descriptionsFor("types.ts")
+        assertTrue("unused interface should be flagged, got: $descriptions",
+            descriptions.any { it.contains("'IFace'") && it.contains("never used") })
+        assertTrue("unused type alias should be flagged, got: $descriptions",
+            descriptions.any { it.contains("'TAlias'") && it.contains("never used") })
+        assertTrue("unused enum should be flagged, got: $descriptions",
+            descriptions.any { it.contains("'E'") && it.contains("never used") })
+    }
+
+    fun testUsedTypeExportNotFlagged() {
+        myFixture.addFileToProject("types.ts", "export interface IFace { a: number }\n")
+        myFixture.addFileToProject("use.ts", "import type { IFace } from './types'\nconst x: IFace = { a: 1 }\n")
+        val descriptions = descriptionsFor("types.ts")
+        assertFalse("used type must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("never used") })
+    }
+
+    fun testReExportFromNotFlaggedByThisInspection() {
+        // `export { x } from './y'` is a re-export link — owned by DeadReExportInspection, not this one.
+        myFixture.addFileToProject("y.ts", "export const x = 1\n")
+        myFixture.addFileToProject("barrel.ts", "export { x } from './y'\n")
+        val descriptions = descriptionsFor("barrel.ts")
+        assertFalse("DeadExportInspection must NOT flag a `… from` re-export, got: $descriptions",
+            descriptions.any { it.contains("never used") })
+    }
 }
