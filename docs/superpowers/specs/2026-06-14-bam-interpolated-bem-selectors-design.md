@@ -119,11 +119,19 @@ Public API:
    - substitute each `#{$var}` / `#{ns.$var}` interpolation with the variable's value
      (skip the selector if the variable is unknown / non-string);
    - if the raw selector text contains `&`, replace each `&` with the parent ruleset's
-     own resolved selector text (recursive walk up the ruleset nesting);
+     own resolved selector text (recursive walk up the `.parent` chain — note the IDE's
+     lazy SCSS PSI returns null from `getContext()` here, so the resolver uses
+     `getParentOfType` which walks `getParent()`);
    - a nested selector with no `&` is an absolute/descendant selector — its own compound
      is the selector itself (e.g. `#{$sidebar}__search` → `.sidebar__search`).
    The root parent may be either an interpolated selector (`#{$var}`) **or** a literal
    class (`.foo`), which is why literal-parent BEM nesting is covered.
+   **At-rule containers are transparent.** The IDE models `@include mixin { … }`,
+   `@media …`, `@supports …` as a `CssRuleset` whose first selector text starts with `@`
+   and whose *named* selector list is empty. These declare no class of their own and are
+   skipped as declarations; for `&` resolution they resolve to their parent's selector,
+   so a `&__search` nested inside `@include breakpoints.breakpoint-min(laptop) { … }`
+   under `#{$sidebar}` still resolves to `.sidebar__search`.
 
 3. **Cycle / depth safety.** The parent walk is bounded by the PSI nesting depth (finite);
    guard against a missing/unresolved parent by bailing to "unresolved" for that selector.
@@ -180,6 +188,8 @@ In scope (covers `BamExample.module.scss` fully):
   `@use … as v` → `#{v.$var}`);
 - `#{$var}` / `#{ns.$var}` interpolation in selectors;
 - `&` BEM concatenation (`&__el`, `&--mod`) with interpolated **or** literal-class parents;
+- bam / `&` selectors nested inside transparent `@include` / `@media` / `@supports`
+  containers (`&` resolves to the enclosing style rule);
 - arbitrary nesting depth.
 
 Out of scope (documented limitations; resolver leaves these selectors invisible, never
@@ -203,7 +213,10 @@ Following existing test patterns (`BasePlatformTestCase`, real WebStorm SDK, no 
   (`.foo { &__bar {} }`) yields `foo__bar`; pseudo selectors yield nothing; an unknown
   variable yields nothing (no crash). **Cross-file:** an imported `$var` resolves via bare
   `@import './vars.scss'`, via aliased `@use './vars.scss' as v` (`#{v.$var}`), and via
-  default-namespace `@use './vars.scss'` (`#{vars.$var}`).
+  default-namespace `@use './vars.scss'` (`#{vars.$var}`). **Container transparency:** a
+  `&__el` nested inside `@include …(…) { }` under the block resolves through the container;
+  a literal-parent BEM modifier (`.input__label { &--focused {} }` → `input__label--focused`)
+  is collected, while a `:not(.x)` argument class is **not** treated as a declaration.
 - **`CssModuleInspectionTest` additions:** a `styles.sidebar__search` is **not** flagged
   unknown; an unused bam class is greyed; a used one is not.
 - **`CssModuleCompletionTest` addition:** `styles.` completion offers bam names.

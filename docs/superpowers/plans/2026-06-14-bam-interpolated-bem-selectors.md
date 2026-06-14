@@ -17,6 +17,7 @@
 - `CssModules.collectClassNames(file)` is the single feeder: completion uses it through `collectClassOrigins`; the unknown-class inspection uses it through `cssModuleBindings` → `collectAllClassNames`; Find Usages and the unused inspection use it through `collectUsedClassNames` (which keys member matching on `collectClassNames`). So adding bam names there lights up completion + unknown-class + the "used" matching automatically. Only the **CSS-side declaration targeting** (go-to, the unused visitor, Find-Usages `canFindUsages`) needs extra per-feature wiring, because those look for `CssClass` elements that don't exist for bam.
 - `$var` values are read by regex (like the existing `scssImportPaths`/`scssDefinedSymbols`), so no compile dependency on Sass-plugin PSI classes is added.
 - **Cross-file `$var`:** the resolver also pulls string vars from files the module **directly** `@import`s / `@use`s, reusing `CssModules.resolveImportPath`. The real codebase writes `@import './vars.scss';` (bare) and `@use "…/vars.scss" as v;` (aliased) — both with extension. Three reference forms are supported: bare (`@import`, `@use … as *`) → `#{$var}`; default-namespace (`@use 'vars'`) → `#{vars.$var}`; alias (`@use … as v`) → `#{v.$var}`. Only direct imports; `@forward`/transitive chains are not followed.
+- **At-rule containers (probed):** the IDE models `@include mixin { … }` as a `CssRuleset` whose first selector text is `@include …` and whose *named* selector list is empty. Its `.parent` chain is intact (`getParent()` reaches the enclosing `#{$sidebar}` ruleset), but `getContext()` returns null on the inner lazy rulesets — so the resolver MUST walk `getParentOfType` (parent-based), never `getContextOfType`. The resolver skips `@`-rule rulesets as declarations and treats them as transparent for `&` resolution (a `&__el` inside an `@include` block under `#{$sidebar}` resolves to `.sidebar__el`).
 
 Run all tests with:
 ```bash
@@ -139,6 +140,41 @@ class BamSelectorsTest : BasePlatformTestCase() {
         )
         assertEquals(setOf("sidebar", "sidebar__search"), BamSelectors.bamClassDeclarations(scss).keys)
     }
+
+    // --- real-example shapes: @include containers + literal-parent BEM ------
+
+    fun testResolvesBamInsideIncludeContainer() {
+        // `&__search` and `#{$sidebar}__content` nested inside an @include content block
+        // (the `sidebar.component.scss` shape). `&` must resolve through the container.
+        val scss = myFixture.addFileToProject(
+            "src/Sidebar.module.scss",
+            "${'$'}sidebar: '.sidebar';\n#{${'$'}sidebar} {\n" +
+                "  @include breakpoints.breakpoint-min(laptop) {\n" +
+                "    &__search { display: block; }\n" +
+                "    #{${'$'}sidebar}__content { --content-height: 90vh; }\n" +
+                "  }\n}",
+        )
+        val names = BamSelectors.bamClassDeclarations(scss).keys
+        assertTrue("&__search inside @include -> sidebar__search, got $names", names.contains("sidebar__search"))
+        assertTrue("#{\$sidebar}__content inside @include -> sidebar__content, got $names", names.contains("sidebar__content"))
+        assertFalse("the @include container must not produce a class, got $names",
+            names.any { it.startsWith("breakpoint") })
+    }
+
+    fun testLiteralParentBemModifierAndNotArg() {
+        // `input-v2.component.scss` shape: literal block class with a `&--mod`, and a
+        // `:not(.x)` whose argument must NOT be treated as a declaration.
+        val scss = myFixture.addFileToProject(
+            "src/Input.module.scss",
+            ".input__label {\n" +
+                "  &--focused { box-shadow: 0 0 0 4px red; }\n" +
+                "  &:not(.input__label--disabled) { color: red; }\n" +
+                "}",
+        )
+        val names = BamSelectors.bamClassDeclarations(scss).keys
+        assertTrue("expected input__label--focused, got $names", names.contains("input__label--focused"))
+        assertFalse("`:not(.x)` arg must not be a declaration, got $names", names.contains("input__label--disabled"))
+    }
 }
 ```
 
@@ -219,6 +255,8 @@ internal object BamSelectors {
         val vars = collectVariables(file)
         val out = LinkedHashMap<String, PsiElement>()
         for (ruleset in PsiTreeUtil.collectElementsOfType(file, CssRuleset::class.java)) {
+            val selText = ruleset.selectors.firstOrNull()?.text ?: continue
+            if (selText.trimStart().startsWith("@")) continue // @include/@media container declares no class
             val resolved = resolveRuleset(ruleset, vars, 0) ?: continue
             val cls = subjectClass(resolved) ?: continue
             val subject = subjectSelectorOf(ruleset) ?: continue
@@ -280,10 +318,22 @@ internal object BamSelectors {
         return null
     }
 
-    /** Resolved text of [ruleset]'s first selector: `#{$var}` substituted, `&` -> parent. */
+    /**
+     * Resolved text of [ruleset]'s first selector: `#{$var}`/`#{ns.$var}` substituted,
+     * `&` -> parent. `@include`/`@media`/`@supports` containers (selector text starts
+     * with `@`, or an empty named-selector list) are transparent: they contribute no
+     * selector of their own and resolve to their parent's selector, so a `&__el` nested
+     * inside such a block still concatenates onto the enclosing style rule. Walks the
+     * `.parent` chain via `getParentOfType` (the lazy SCSS PSI returns null from
+     * `getContext()` for these inner rulesets, so context-based walking must NOT be used).
+     */
     private fun resolveRuleset(ruleset: CssRuleset, vars: Map<String, String>, depth: Int): String? {
         if (depth > 64) return null // nesting-depth backstop
-        val selectorText = ruleset.selectors.firstOrNull()?.text ?: return null
+        val selectorText = ruleset.selectors.firstOrNull()?.text
+        if (selectorText == null || selectorText.trimStart().startsWith("@")) {
+            val parent = PsiTreeUtil.getParentOfType(ruleset, CssRuleset::class.java, true) ?: return null
+            return resolveRuleset(parent, vars, depth + 1)
+        }
         var text = substituteInterpolations(selectorText, vars) ?: return null
         if (text.contains('&')) {
             val parent = PsiTreeUtil.getParentOfType(ruleset, CssRuleset::class.java, true) ?: return null
@@ -808,5 +858,6 @@ git commit -m "docs(bam): document interpolated/&-nested BEM support; bump to 1.
 - **Type consistency:** `bamClassDeclarations(PsiFile): Map<String, PsiElement>` and `bamClassForElement(PsiElement): String?` are used with those exact signatures in Tasks 3-6.
 - **No Sass-plugin dependency:** variables are read by `STRING_VAR` regex on `file.text` (local) and on imported files' text via `VfsUtilCore.loadText`; only base CSS PSI types (`CssRuleset`, `CssSelector` via `getSelectors()`, `CssSimpleSelector`) are referenced — all in `com.intellij.psi.css`, already a dependency. Import resolution reuses `CssModules.resolveImportPath` plus a Sass partial fallback (`_name`/`.scss`/`.sass`).
 - **Cross-file `$var` (both forms):** covered by `collectVariables`/`scssVarImports`/`defaultNamespace` in Task 1 and the three cross-file tests (`testResolvesImportedBareVar`, `testResolvesAliasedUseVar`, `testResolvesDefaultNamespaceUseVar`). Real codebase forms (`@import './vars.scss'`, `@use '…/vars.scss' as v`) are both handled.
+- **Real-example shapes covered:** `@include`-container nesting and literal-parent BEM modifiers (from `sidebar.component.scss` / `input-v2.component.scss`) are covered by `testResolvesBamInsideIncludeContainer` and `testLiteralParentBemModifierAndNotArg`. The `@`-transparency lives in `compute` (skip `@` rulesets as declarations) and `resolveRuleset` (resolve `@` containers to their parent). These files are `.component.scss` and not gated by `isModuleFileName` in production — they are used here only as selector-pattern examples to harden the resolver, which is filename-agnostic.
 - **Adapt-to-sibling caveats:** Task 3 Step 5 (completion helper) and Task 6 (Find Usages helper) must match the exact helper methods used by the existing sibling tests — read those files before writing the new test method.
 ```
