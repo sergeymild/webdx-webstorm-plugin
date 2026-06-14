@@ -87,4 +87,57 @@ class DeadReExportInspectionTest : BasePlatformTestCase() {
         assertFalse("plain module -> nothing flagged, got: $descriptions",
             descriptions.any { it.contains("never used") })
     }
+
+    fun testNextPageReExportNotFlagged() {
+        // A Next.js Pages Router page is loaded by file path, never imported. With a next.config
+        // present it must be treated as a live entry point even though no consumer reaches it.
+        myFixture.addFileToProject("next.config.js", "module.exports = {}\n")
+        myFixture.addFileToProject("comp.ts", "export const C = 1\n")
+        myFixture.addFileToProject("pages/p/index.ts", "export { C as default } from '../../comp'\n")
+        val descriptions = descriptionsFor("pages/p/index.ts")
+        assertFalse("Next.js page re-export must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("never used") })
+    }
+
+    fun testBarrelReachedOnlyViaNextPageNotFlagged() {
+        // The container barrel is reached ONLY through the page. Since the page is an entry point,
+        // the recursion lands on it and reports live, so the barrel must NOT be flagged either.
+        myFixture.addFileToProject("next.config.js", "module.exports = {}\n")
+        myFixture.addFileToProject("comp.ts", "export const C = 1\n")
+        myFixture.addFileToProject("container/index.ts", "export { C } from '../comp'\n")
+        myFixture.addFileToProject("pages/p/index.ts", "export { C as default } from '../../container'\n")
+        val descriptions = descriptionsFor("container/index.ts")
+        assertFalse("barrel reached only via Next.js page must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("never used") })
+    }
+
+    fun testPagesDirWithoutNextConfigStillFlagged() {
+        // No next.config anywhere: a pages/ dir is not a Next.js signal, so a dead re-export there
+        // is a normal dead re-export and must still be flagged.
+        myFixture.addFileToProject("comp.ts", "export const C = 1\n")
+        myFixture.addFileToProject("pages/p/index.ts", "export { C as default } from '../../comp'\n")
+        val descriptions = descriptionsFor("pages/p/index.ts")
+        assertTrue("pages/ without next.config must still be flagged, got: $descriptions",
+            descriptions.any { it.contains("never used") })
+    }
+
+    fun testAppRouterPageFileNotFlagged() {
+        // App Router reserved file (page.tsx) is an entry point -> must NOT be flagged.
+        myFixture.addFileToProject("next.config.js", "module.exports = {}\n")
+        myFixture.addFileToProject("comp.ts", "export const C = 1\n")
+        myFixture.addFileToProject("app/x/page.tsx", "export { C as default } from '../../comp'\n")
+        val descriptions = descriptionsFor("app/x/page.tsx")
+        assertFalse("App Router page.tsx must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("never used") })
+    }
+
+    fun testAppRouterNonReservedStillFlagged() {
+        // A non-reserved basename under app/ is NOT an entry point; a dead re-export there is flagged.
+        myFixture.addFileToProject("next.config.js", "module.exports = {}\n")
+        myFixture.addFileToProject("comp.ts", "export const C = 1\n")
+        myFixture.addFileToProject("app/x/widget.ts", "export { C as default } from '../../comp'\n")
+        val descriptions = descriptionsFor("app/x/widget.ts")
+        assertTrue("non-reserved app/ file must still be flagged, got: $descriptions",
+            descriptions.any { it.contains("never used") })
+    }
 }

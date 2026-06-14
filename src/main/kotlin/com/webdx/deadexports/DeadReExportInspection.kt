@@ -16,6 +16,7 @@ class DeadReExportInspection : LocalInspectionTool() {
 
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         val moduleFile = holder.file.originalFile
+        if (NextEntryPoints.isEntryPoint(moduleFile)) return PsiElementVisitor.EMPTY_VISITOR
         val analyzer = DeadReExports.Analyzer(moduleFile.project)
         return object : PsiElementVisitor() {
             override fun visitElement(element: PsiElement) {
