@@ -1,9 +1,23 @@
 package com.webdx.rnstyles
 
+import com.intellij.psi.PsiElement
+import com.intellij.psi.impl.FakePsiElement
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 /** PSI tests for the RnStyles helpers, on in-memory JS/TS fixtures. */
 class RnStylesPsiTest : BasePlatformTestCase() {
+
+    /**
+     * Regression: the background usage-highlighter can hand `resolveKeyProperty` a childless leaf
+     * whose `getText()` returns null (a Java platform type). It must return null, not NPE.
+     */
+    fun testResolveKeyPropertyNullTextLeafDoesNotThrow() {
+        val nullTextLeaf = object : FakePsiElement() {
+            override fun getParent(): PsiElement? = null
+            // getFirstChild() and getText() both default to null in FakePsiElement.
+        }
+        assertNull(RnStyles.resolveKeyProperty(nullTextLeaf))
+    }
 
     fun testFindsStyleSheetAndKeys() {
         val file = myFixture.configureByText(

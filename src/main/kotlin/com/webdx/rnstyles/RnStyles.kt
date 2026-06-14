@@ -243,7 +243,7 @@ internal object RnStyles {
      */
     fun resolveKeyProperty(element: PsiElement): JSProperty? {
         if (element.firstChild != null) return null // leaves only
-        val name = element.text
+        val name = element.text ?: return null // getText() is a platform type; some leaves return null
         if (name.isEmpty() || !name.first().isJavaIdentifierStart()) return null
         val file = element.containingFile?.originalFile ?: return null
         if (!CssModules.isJsLikeFileName(file.name)) return null
@@ -251,7 +251,7 @@ internal object RnStyles {
         val dot = CssModules.prevMeaningfulLeaf(element)
         if (dot != null && dot.text == ".") { // Case A: <binding>.<name>
             val qualifier = CssModules.prevMeaningfulLeaf(dot) ?: return null
-            val q = qualifier.text
+            val q = qualifier.text ?: return null
             // Skip non-identifier qualifiers (e.g. `getStyles().x`, `arr[i].x`) before the
             // file-wide PSI/text scans in resolveStyleSheetForBinding.
             if (q.isEmpty() || !q.first().isJavaIdentifierStart()) return null
