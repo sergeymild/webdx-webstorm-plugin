@@ -22,9 +22,10 @@ class DeadReExportInspection : LocalInspectionTool() {
             override fun visitElement(element: PsiElement) {
                 if (element !is ES6ExportDeclaration || !element.isReExport) return
                 if (element.isExportAll) {
-                    // `export * from` re-exports the whole namespace; flag the statement only
-                    // when nothing reaches through it to a real consumer.
-                    if (!analyzer.isLive(moduleFile, DeadReExports.STAR)) {
+                    // `export * from S` re-exports S's whole namespace; flag the statement only
+                    // when no real consumer draws a name that S actually exports. Resolves S so a
+                    // live barrel can still have a dead `export *` among its links.
+                    if (!analyzer.isExportStarLive(moduleFile, element)) {
                         holder.registerProblem(element, "Re-export is never used (no consumer reaches it)",
                             ProblemHighlightType.LIKE_UNUSED_SYMBOL)
                     }

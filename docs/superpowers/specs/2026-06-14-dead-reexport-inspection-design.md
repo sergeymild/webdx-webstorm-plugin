@@ -91,6 +91,23 @@ new liveness.
   flagged when we are certain the search was complete; if reference search is unavailable
   (e.g. dumb mode), the inspection yields nothing.
 
+### `export *` source-aware liveness
+
+A wildcard re-export `export * from S` cannot use the per-name `isLive(F, "*")` query: real
+consumers import **concrete** names (`import { AvatarInput } from '@/components'`), which never
+match the `*` sentinel, so the statement would be false-flagged. Conversely, treating any named
+consumer as keeping every `export *` live would let a genuinely dead `export * from './SomeFun'`
+survive in a barrel that is alive via other links (a false negative).
+
+`Analyzer.isExportStarLive(barrel, decl)` resolves the **source module(s)** `S` of the wildcard
+(`ES6PsiUtil.getFromClauseResolvedReferences` on the from-clause) and asks whether any real
+consumer reachable from the barrel draws a name that `S` *actually exports*
+(`ES6PsiUtil.resolveSymbolInModules(name, …, S)`) — or takes the whole namespace
+(`import * as ns` / `require`). Membership is memoized per `(sourceKey, name)`. Re-export sites
+are followed: `export * from barrel` recurses; `export { src as exp } from barrel` checks
+`isLive(G, exp)` only when `S` exports `src`. If the from-clause does not resolve to any module,
+the statement is conservatively treated as live (never flag what we cannot analyze).
+
 ## Scope
 
 - Search scope: `GlobalSearchScope.projectScope(project)`. Exclude `node_modules` and

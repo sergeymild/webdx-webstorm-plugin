@@ -213,8 +213,12 @@ behave correctly where the service treats `styles.<key>` as an untyped member.
 
     Per **exported name** (so a 10-line barrel flags exactly the dead links), with the
     source-vs-exported name handled correctly for aliases (`export { Inner as Outer }` is
-    keyed on `Outer`, the name consumers import). The reachability search uses the IDE's own
-    module resolution, so `@/` path aliases and `require()` are followed automatically.
+    keyed on `Outer`, the name consumers import). For `export * from './S'` the source module
+    `S` is resolved and the link is live only when a real consumer imports a name `S` actually
+    exports (or takes the whole namespace via `import * as` / `require`) — so a dead
+    `export * from './SomeFun'` is flagged even inside a barrel kept alive by its other links.
+    The reachability search uses the IDE's own module resolution, so `@/` path aliases and
+    `require()` are followed automatically.
 
     **Conservative by design:** anything not positively identified as a re-export keeps the
     name live (`import * as`, whole-module `require(F)`, and any unresolvable/dynamic

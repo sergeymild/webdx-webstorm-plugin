@@ -134,6 +134,101 @@ class DeadReExportsTest : BasePlatformTestCase() {
         assertTrue("a is live via the cycle to b's importer -> must not be poisoned by memo", aLive)
     }
 
+    private fun exportStarDeclMatching(file: com.intellij.psi.PsiFile, fromContains: String): ES6ExportDeclaration =
+        PsiTreeUtil.findChildrenOfType(file, ES6ExportDeclaration::class.java)
+            .first { it.isExportAll && (it.fromClause?.referenceText ?: "").contains(fromContains) }
+
+    fun testExportStarLiveViaNamedImport() {
+        // Regression for the reported false positive: a barrel re-exports a component via
+        // `export *` and the ONLY consumer uses a NAMED import. The source module exports the
+        // imported name, so the wildcard must be live.
+        myFixture.addFileToProject("c/AvatarInput.tsx", "export const AvatarInput = () => null\n")
+        myFixture.addFileToProject("c/index.ts", "export * from './AvatarInput'\n")
+        myFixture.addFileToProject("use.ts", "import { AvatarInput } from './c'\nconst x = AvatarInput\n")
+        myFixture.configureByText("trigger.ts", "")
+        val barrel = moduleFile("c/index.ts")
+        assertTrue("export * must be live when a named import draws a name the source exports",
+            analyzer().isExportStarLive(barrel, exportStarDeclMatching(barrel, "AvatarInput")))
+    }
+
+    fun testExportStarDeadAmongLiveBarrel() {
+        // The reported false NEGATIVE: a barrel forwards two modules via `export *`; consumers
+        // import only `Used`. `export * from './SomeFun'` exports nothing anyone imports, so it
+        // must be dead EVEN THOUGH the barrel itself is live via `Used`.
+        myFixture.addFileToProject("c/Used.tsx", "export const Used = 1\n")
+        myFixture.addFileToProject("c/SomeFun.ts", "export const SomeFun = 2\n")
+        myFixture.addFileToProject("c/index.ts", "export * from './Used'\nexport * from './SomeFun'\n")
+        myFixture.addFileToProject("use.ts", "import { Used } from './c'\nconst x = Used\n")
+        myFixture.configureByText("trigger.ts", "")
+        val barrel = moduleFile("c/index.ts")
+        val az = analyzer()
+        assertTrue("export * from './Used' is consumed -> live",
+            az.isExportStarLive(barrel, exportStarDeclMatching(barrel, "Used")))
+        assertFalse("export * from './SomeFun' exports nothing imported -> dead",
+            az.isExportStarLive(barrel, exportStarDeclMatching(barrel, "SomeFun")))
+    }
+
+    fun testExportStarDeadWithNoConsumer() {
+        // No real consumer at all (only a side-effect import, which consumes nothing) -> dead.
+        myFixture.addFileToProject("d/AvatarInput.tsx", "export const AvatarInput = () => null\n")
+        myFixture.addFileToProject("d/index.ts", "export * from './AvatarInput'\n")
+        myFixture.addFileToProject("use.ts", "import './d'\n")
+        myFixture.configureByText("trigger.ts", "")
+        val barrel = moduleFile("d/index.ts")
+        assertFalse("export * with no name-consuming consumer must be dead",
+            analyzer().isExportStarLive(barrel, exportStarDeclMatching(barrel, "AvatarInput")))
+    }
+
+    fun testExportStarLiveViaNamespaceImport() {
+        // A namespace import takes the whole barrel namespace -> the wildcard is live.
+        myFixture.addFileToProject("e/AvatarInput.tsx", "export const AvatarInput = () => null\n")
+        myFixture.addFileToProject("e/index.ts", "export * from './AvatarInput'\n")
+        myFixture.addFileToProject("use.ts", "import * as ns from './e'\nconst x = ns\n")
+        myFixture.configureByText("trigger.ts", "")
+        val barrel = moduleFile("e/index.ts")
+        assertTrue("namespace import keeps the wildcard live",
+            analyzer().isExportStarLive(barrel, exportStarDeclMatching(barrel, "AvatarInput")))
+    }
+
+    fun testExportStarLiveThroughWildcardReExportChain() {
+        // Chain: AvatarInput/SomeFun -> barrel (`export *`) -> agg (`export * from barrel`) ->
+        // consumer imports `Used` from agg. The wildcard re-export site in agg must be followed
+        // so `export * from './Used'` is live, while `export * from './SomeFun'` (nothing agg's
+        // consumer draws comes from SomeFun) is dead — even reached only transitively via agg.
+        myFixture.addFileToProject("c/Used.tsx", "export const Used = 1\n")
+        myFixture.addFileToProject("c/SomeFun.ts", "export const SomeFun = 2\n")
+        myFixture.addFileToProject("c/index.ts", "export * from './Used'\nexport * from './SomeFun'\n")
+        myFixture.addFileToProject("agg.ts", "export * from './c'\n")               // wildcard re-export site
+        myFixture.addFileToProject("use.ts", "import { Used } from './agg'\nconst x = Used\n")
+        myFixture.configureByText("trigger.ts", "")
+        val barrel = moduleFile("c/index.ts")
+        val az = analyzer()
+        assertTrue("export * from './Used' is live through the wildcard chain",
+            az.isExportStarLive(barrel, exportStarDeclMatching(barrel, "Used")))
+        assertFalse("export * from './SomeFun' is dead through the wildcard chain",
+            az.isExportStarLive(barrel, exportStarDeclMatching(barrel, "SomeFun")))
+    }
+
+    fun testExportStarLiveThroughNamedReExportChain() {
+        // Chain: barrel forwards Used + SomeFun via `export *`; agg NAMED-re-exports one of the
+        // barrel's wildcard names under an alias (`export { Used as U } from './c'`); a consumer
+        // imports the alias `U`. The named re-export site must map the alias back to the source
+        // name `Used` and resolve it against each `export *`'s source module: live for './Used',
+        // dead for './SomeFun' (which never exports `Used`).
+        myFixture.addFileToProject("c/Used.tsx", "export const Used = 1\n")
+        myFixture.addFileToProject("c/SomeFun.ts", "export const SomeFun = 2\n")
+        myFixture.addFileToProject("c/index.ts", "export * from './Used'\nexport * from './SomeFun'\n")
+        myFixture.addFileToProject("agg.ts", "export { Used as U } from './c'\n")    // named re-export site
+        myFixture.addFileToProject("use.ts", "import { U } from './agg'\nconst x = U\n")
+        myFixture.configureByText("trigger.ts", "")
+        val barrel = moduleFile("c/index.ts")
+        val az = analyzer()
+        assertTrue("export * from './Used' is live: agg forwards Used as U and U is imported",
+            az.isExportStarLive(barrel, exportStarDeclMatching(barrel, "Used")))
+        assertFalse("export * from './SomeFun' is dead: SomeFun never exports the forwarded 'Used'",
+            az.isExportStarLive(barrel, exportStarDeclMatching(barrel, "SomeFun")))
+    }
+
     fun testPartialBarrelOnlyImportedNameLive() {
         // barrel forwards two names; the only consumer imports just one of them.
         myFixture.addFileToProject("b/x.ts", "export const Live = 1\nexport const Dead = 2\n")

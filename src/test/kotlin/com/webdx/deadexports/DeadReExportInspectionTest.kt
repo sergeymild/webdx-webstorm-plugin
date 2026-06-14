@@ -43,6 +43,33 @@ class DeadReExportInspectionTest : BasePlatformTestCase() {
             descriptions.any { it.contains("'Live'") && it.contains("never used") })
     }
 
+    fun testExportStarBarrelNamedImportNotFlagged() {
+        // Reported false positive: a component barrel re-exports via `export *` and the only
+        // consumer uses a NAMED import (`import { AvatarInput } from './components'`). The
+        // wildcard re-export must NOT be flagged — a named import reaches through it.
+        myFixture.addFileToProject("components/AvatarInput/AvatarInput.tsx",
+            "export const AvatarInput = () => null\n")
+        myFixture.addFileToProject("components/index.ts", "export * from './AvatarInput/AvatarInput'\n")
+        myFixture.addFileToProject("use.tsx", "import { AvatarInput } from './components'\nconst x = AvatarInput\n")
+        val descriptions = descriptionsFor("components/index.ts")
+        assertFalse("export * consumed via named import must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("never used") })
+    }
+
+    fun testExportStarDeadAmongLiveBarrelFlagged() {
+        // The reported false negative: a barrel forwards two modules via `export *`; consumers
+        // import only `Used`. The `export * from './SomeFun'` link is dead and must be flagged
+        // even though the barrel is alive via `Used` (which must NOT be flagged).
+        myFixture.addFileToProject("components/Used.tsx", "export const Used = 1\n")
+        myFixture.addFileToProject("components/SomeFun.ts", "export const SomeFun = 2\n")
+        myFixture.addFileToProject("components/index.ts",
+            "export * from './Used'\nexport * from './SomeFun'\n")
+        myFixture.addFileToProject("use.tsx", "import { Used } from './components'\nconst x = Used\n")
+        val descriptions = descriptionsFor("components/index.ts")
+        assertEquals("exactly the dead './SomeFun' export* should be flagged, got: $descriptions",
+            1, descriptions.count { it.contains("never used") })
+    }
+
     fun testStaticRequireMemberKeepsAllNamesLive() {
         // Conservative require behavior: a STATIC `require('./b')` resolves to the barrel, and
         // member access (`.A`) is treated as STAR (consumedNames returns STAR for any non-import

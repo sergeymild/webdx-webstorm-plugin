@@ -4,6 +4,7 @@ import com.intellij.lang.ecmascript6.psi.ES6ExportDeclaration
 import com.intellij.lang.ecmascript6.psi.ES6ImportDeclaration
 import com.intellij.lang.ecmascript6.psi.ES6ImportExportDeclaration
 import com.intellij.lang.ecmascript6.psi.ES6NamespaceImportExport
+import com.intellij.lang.ecmascript6.resolve.ES6PsiUtil
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
@@ -96,6 +97,9 @@ object DeadReExports {
         // same path string used for the memo key. The verdict memo dedupes by (path, name); this
         // dedupes the underlying search by path.
         private val refsCache = HashMap<String, List<com.intellij.psi.PsiReference>>()
+        // Memo for "does source module set <sourceKey> export <name>?" — resolveSymbolInModules is
+        // a per-name module resolution, and the same names recur across a barrel's many consumers.
+        private val exportsMemo = HashMap<Pair<String, String>, Boolean>()
 
         /**
          * Result of one recursive [isLive] computation: the liveness verdict plus whether
@@ -164,6 +168,78 @@ object DeadReExports {
             // the in-progress ancestor, so don't propagate hitCycle further up.
             return Result(live, hitCycle = hitCycle && !live)
         }
+
+        /**
+         * Is the wildcard re-export [decl] (`export * from S`) in [barrel] live? Unlike the
+         * per-name [isLive], this RESOLVES the source module(s) S and asks whether any real
+         * consumer of the barrel draws a name that S *actually exports* (or takes the whole
+         * namespace). So a barrel that has live consumers of OTHER names still lets an
+         * `export * from './SomeFun'` die when nobody imports anything SomeFun exports — while
+         * `export * from './AvatarInput/AvatarInput'` stays live because a consumer imports the
+         * `AvatarInput` that module exports.
+         *
+         * Conservative when resolution fails: if the from-clause does not resolve to any module
+         * we return live (never flag what we cannot analyze).
+         */
+        fun isExportStarLive(barrel: PsiFile, decl: ES6ExportDeclaration): Boolean {
+            val fromClause = decl.fromClause ?: return true
+            val sources = ES6PsiUtil.getFromClauseResolvedReferences(fromClause)
+            if (sources.isEmpty()) return true
+            val sourceKey = sources.mapNotNull { it.containingFile?.originalFile?.virtualFile?.path ?: it.containingFile?.name }
+                .sorted().joinToString("|")
+            return reaches(barrel, decl, sources, sourceKey, HashSet())
+        }
+
+        /** Does any real consumer reachable from [file] draw a name that [sources] export (or `*`)? */
+        private fun reaches(
+            file: PsiFile,
+            place: PsiElement,
+            sources: Collection<PsiElement>,
+            sourceKey: String,
+            visited: MutableSet<String>,
+        ): Boolean {
+            val origin = file.originalFile
+            val pathKey = origin.virtualFile?.path ?: origin.name
+            if (!visited.add(pathKey)) return false
+            // A Next.js entry point is consumed by the framework, so a wildcard reaching it is live.
+            if (NextEntryPoints.isEntryPoint(origin)) return true
+            val refs = refsCache.getOrPut(pathKey) {
+                ReferencesSearch.search(origin, scope).findAll().toList()
+            }
+            for (ref in refs) {
+                when (val kind = classify(ref.element)) {
+                    RefKind.RealConsumer -> {
+                        val consumed = consumedNames(ref.element)
+                        // A namespace/require consumer takes everything the wildcard forwards.
+                        if (STAR in consumed) return true
+                        if (consumed.any { exportsName(sources, sourceKey, it, place) }) return true
+                    }
+                    is RefKind.ReExportSite -> {
+                        val g = kind.decl.containingFile?.originalFile ?: continue
+                        if (kind.decl.isExportAll) {
+                            // `export * from barrel` forwards barrel's names (incl. S's) onward.
+                            if (reaches(g, place, sources, sourceKey, visited)) return true
+                        } else {
+                            // `export { src as exp } from barrel`: forwards barrel's `src`. If S
+                            // exports `src`, the wildcard name leaves G as `exp` — check G live for it.
+                            for (spec in kind.decl.exportSpecifiers) {
+                                val src = spec.referenceName ?: continue
+                                if (exportsName(sources, sourceKey, src, place) && isLive(g, spec.declaredName ?: src)) {
+                                    return true
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return false
+        }
+
+        /** Does the source module set [sources] export a name [name]? Memoized by [sourceKey]. */
+        private fun exportsName(sources: Collection<PsiElement>, sourceKey: String, name: String, place: PsiElement): Boolean =
+            exportsMemo.getOrPut(sourceKey to name) {
+                ES6PsiUtil.resolveSymbolInModules(name, place, sources).isNotEmpty()
+            }
 
         /** Does this re-export site forward our source [name] (directly or via `export *`)? */
         private fun forwardsName(decl: ES6ExportDeclaration, name: String): Boolean {
