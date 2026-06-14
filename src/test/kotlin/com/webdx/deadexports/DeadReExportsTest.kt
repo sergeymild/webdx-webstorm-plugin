@@ -26,4 +26,29 @@ class DeadReExportsTest : BasePlatformTestCase() {
         val decl = reExportDecls("export * from './x'").single()
         assertEquals(listOf(DeadReExports.STAR), DeadReExports.reExportedSourceNames(decl))
     }
+
+    private fun classifyRefIn(consumer: String, moduleName: String = "x"): DeadReExports.RefKind {
+        myFixture.addFileToProject("$moduleName.ts", "export const a = 1\nexport default 2\n")
+        val file = myFixture.configureByText("consumer.ts", consumer)
+        val moduleFile = myFixture.findFileInTempDir("$moduleName.ts")
+            .let { com.intellij.psi.PsiManager.getInstance(project).findFile(it)!! }
+        val refs = com.intellij.psi.search.searches.ReferencesSearch
+            .search(moduleFile, com.intellij.psi.search.GlobalSearchScope.projectScope(project))
+            .findAll()
+            .filter { it.element.containingFile == file }
+        return DeadReExports.classify(refs.first().element)
+    }
+
+    fun testImportIsRealConsumer() {
+        assertEquals(DeadReExports.RefKind.RealConsumer, classifyRefIn("import { a } from './x'\nconst y = a"))
+    }
+
+    fun testRequireIsRealConsumer() {
+        assertEquals(DeadReExports.RefKind.RealConsumer, classifyRefIn("const a = require('./x').a"))
+    }
+
+    fun testReExportSiteIsReExport() {
+        val kind = classifyRefIn("export { a } from './x'")
+        assertTrue("expected ReExportSite, got $kind", kind is DeadReExports.RefKind.ReExportSite)
+    }
 }

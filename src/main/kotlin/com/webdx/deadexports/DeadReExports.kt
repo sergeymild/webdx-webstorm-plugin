@@ -1,6 +1,9 @@
 package com.webdx.deadexports
 
 import com.intellij.lang.ecmascript6.psi.ES6ExportDeclaration
+import com.intellij.lang.ecmascript6.psi.ES6ImportExportDeclaration
+import com.intellij.psi.PsiElement
+import com.intellij.psi.util.PsiTreeUtil
 
 /**
  * Reverse reachability over the ES6 re-export graph: a name re-exported by a module is
@@ -26,5 +29,22 @@ object DeadReExports {
     fun reExportedSourceNames(decl: ES6ExportDeclaration): List<String> {
         if (decl.isExportAll) return listOf(STAR)
         return decl.exportSpecifiers.mapNotNull { it.referenceName }
+    }
+
+    sealed interface RefKind {
+        /** A non-re-export use (import / require / dynamic import): keeps the name live. */
+        object RealConsumer : RefKind
+        /** A re-export that forwards the name onward; liveness depends on [decl]'s own consumers. */
+        data class ReExportSite(val decl: ES6ExportDeclaration) : RefKind
+    }
+
+    /**
+     * Classify one reference to a module file. Conservative: anything we cannot positively
+     * identify as an `export … from` re-export is treated as a real consumer.
+     */
+    fun classify(refElement: PsiElement): RefKind {
+        val decl = PsiTreeUtil.getParentOfType(refElement, ES6ImportExportDeclaration::class.java, false)
+        if (decl is ES6ExportDeclaration && decl.isReExport) return RefKind.ReExportSite(decl)
+        return RefKind.RealConsumer
     }
 }
