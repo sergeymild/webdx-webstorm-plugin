@@ -63,13 +63,14 @@ internal object CssModuleClassNavigation {
 
         val cssClass = PsiTreeUtil.collectElementsOfType(declaringFile, CssClass::class.java)
             .firstOrNull { it.name?.removePrefix(".") == name }
-        if (cssClass == null) {
-            log.warn("[CSS-NAV] bail: no CssClass PSI for '$name' in ${declaringFile.name}")
+        val target = cssClass ?: BamSelectors.bamClassDeclarations(declaringFile)[name]
+        if (target == null) {
+            log.warn("[CSS-NAV] bail: no CssClass or bam selector for '$name' in ${declaringFile.name}")
             return null
         }
 
         log.warn("[CSS-NAV] OK: '$binding.$name' -> ${declaringFile.name} (module=${moduleFile.name})")
-        return cssClass
+        return target
     }
 
     private fun importLineFor(text: String, binding: String): String =

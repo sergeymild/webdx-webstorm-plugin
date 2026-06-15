@@ -71,4 +71,20 @@ class CssModuleGotoDeclarationTest : BasePlatformTestCase() {
         )
         assertNull("class not declared anywhere must not resolve", targetsAtCaret())
     }
+
+    fun testGoesToBamSelector() {
+        myFixture.addFileToProject(
+            "Bam.module.scss",
+            "\$sidebar: '.sidebar';\n#{\$sidebar} {\n  &__search { display: none; }\n}",
+        )
+        myFixture.configureByText(
+            "Use.tsx",
+            "import styles from './Bam.module.scss';\nconst x = styles.sidebar__sea<caret>rch;",
+        )
+        val targets = targetsAtCaret()
+        assertNotNull("expected a target", targets)
+        assertEquals(1, targets!!.size)
+        assertEquals("Bam.module.scss", targets[0].containingFile?.name)
+        assertEquals("&__search", targets[0].text)
+    }
 }
