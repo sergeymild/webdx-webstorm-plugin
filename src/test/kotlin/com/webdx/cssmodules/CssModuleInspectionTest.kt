@@ -188,6 +188,31 @@ class CssModuleInspectionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testUnusedBamClassIsReported() {
+        myFixture.addFileToProject(
+            "src/Use.tsx",
+            "import styles from './Bam.module.scss';\nconst x = styles.sidebar__search;",
+        )
+        val scss = myFixture.addFileToProject(
+            "src/Bam.module.scss",
+            "\$sidebar: '.sidebar';\n#{\$sidebar} {\n" +
+                "  &__search { display: none; }\n" +
+                "  &__dead { display: none; }\n}",
+        )
+        myFixture.configureFromExistingVirtualFile(scss.virtualFile)
+        myFixture.enableInspections(CssModuleUnusedClassInspection())
+
+        val descriptions = myFixture.doHighlighting().mapNotNull { it.description }
+        assertTrue(
+            "expected 'sidebar__dead' unused, got: $descriptions",
+            descriptions.any { it.contains("'sidebar__dead'") && it.contains("not used") },
+        )
+        assertFalse(
+            "'sidebar__search' is used and must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("'sidebar__search'") },
+        )
+    }
+
     fun testImportedClassIsNotFlaggedAsUnknown() {
         myFixture.addFileToProject("src/common.module.scss", ".nextButton { color: red; }")
         myFixture.addFileToProject(
