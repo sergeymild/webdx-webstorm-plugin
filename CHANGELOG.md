@@ -48,6 +48,9 @@ tsgo engine where the TS language service doesn't load plugins.
   `styles['sidebar--expanded']` instead of leaving the invalid `styles.sidebar--expanded`
   (which the JS parser flagged as an error). Plain identifiers keep dot access.
   (`CssModuleStylesCompletion`.)
+- **Go-to-declaration works on bracket access.** Cmd+Click / Cmd+B on the string in
+  `styles['sidebar--expanded']` now navigates to the bam selector, like dot access does.
+  (`CssModuleClassNavigation` member-access detection covers `<binding>['name']`.)
 
 ## 1.7.0 — 2026-06-13
 - **New: React Native `StyleSheet.create` support** (`com.webdx.rnstyles`), source-resolved
