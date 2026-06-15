@@ -213,6 +213,35 @@ class CssModuleInspectionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testAllDeclarationSitesOfUnusedBamClassAreFlagged() {
+        // A bam class declared at MULTIPLE selector sites (the `#{$sidebar}__x` form inside
+        // `&--expanded` AND the top-level `&__x`) must be greyed at EVERY site when unused,
+        // matching how a literal `.foo` declared twice is flagged at both occurrences.
+        myFixture.addFileToProject(
+            "src/Use.tsx",
+            "import styles from './Bam.module.scss';\nconst x = styles.sidebar__content;",
+        )
+        val scss = myFixture.addFileToProject(
+            "src/Bam.module.scss",
+            "\$sidebar: '.sidebar';\n#{\$sidebar} {\n" +
+                "  &--expanded { #{\$sidebar}__search { display: block; } }\n" +
+                "  &__search { display: none; }\n" + // second declaration site of sidebar__search
+                "  &__content { width: 100%; }\n" +
+                "}",
+        )
+        myFixture.configureFromExistingVirtualFile(scss.virtualFile)
+        myFixture.enableInspections(CssModuleUnusedClassInspection())
+
+        val flaggedSearch = myFixture.doHighlighting().filter {
+            it.description?.contains("'sidebar__search'") == true && it.description!!.contains("not used")
+        }
+        assertEquals(
+            "both sidebar__search declaration sites must be greyed, got: ${flaggedSearch.map { it.text }}",
+            2,
+            flaggedSearch.size,
+        )
+    }
+
     fun testImportedClassIsNotFlaggedAsUnknown() {
         myFixture.addFileToProject("src/common.module.scss", ".nextButton { color: red; }")
         myFixture.addFileToProject(

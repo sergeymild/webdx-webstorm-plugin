@@ -44,8 +44,15 @@ internal object BamSelectors {
     private val SCSS_IMPORT = Regex("""@import\s+([^;{}\n]*)""")
     private val QUOTED = Regex("""['"]([^'"]+)['"]""")
 
-    /** Subject class name -> the `CssSimpleSelector` that declares it (first wins). Cached. */
-    fun bamClassDeclarations(moduleFile: PsiFile): Map<String, PsiElement> =
+    /**
+     * Subject class name -> EVERY `CssSimpleSelector` that declares it, in document order.
+     * A bam class is commonly declared at several sites (e.g. `#{$sidebar}__x` inside a
+     * modifier block AND a top-level `&__x`); all are returned so the unused-class
+     * inspection can grey each one, mirroring how a literal `.foo` declared twice is
+     * flagged at both occurrences. Callers that want a single navigation target use the
+     * first element. Cached.
+     */
+    fun bamClassDeclarations(moduleFile: PsiFile): Map<String, List<PsiElement>> =
         CachedValuesManager.getCachedValue(moduleFile) {
             CachedValueProvider.Result.create(
                 compute(moduleFile),
@@ -58,12 +65,12 @@ internal object BamSelectors {
         val file = element.containingFile?.originalFile ?: return null
         val ruleset = PsiTreeUtil.getParentOfType(element, CssRuleset::class.java, false) ?: return null
         val subject = subjectSelectorOf(ruleset) ?: return null
-        return bamClassDeclarations(file).entries.firstOrNull { it.value === subject }?.key
+        return bamClassDeclarations(file).entries.firstOrNull { (_, els) -> els.any { it === subject } }?.key
     }
 
-    private fun compute(file: PsiFile): Map<String, PsiElement> {
+    private fun compute(file: PsiFile): Map<String, List<PsiElement>> {
         val vars = collectVariables(file)
-        val out = LinkedHashMap<String, PsiElement>()
+        val out = LinkedHashMap<String, MutableList<PsiElement>>()
         for (ruleset in PsiTreeUtil.collectElementsOfType(file, CssRuleset::class.java)) {
             // only the first selector of a comma group is resolved (BEM rarely comma-groups)
             val selText = ruleset.selectors.firstOrNull()?.text ?: continue
@@ -74,7 +81,7 @@ internal object BamSelectors {
             val resolved = resolveRuleset(ruleset, vars, 0) ?: continue
             val cls = subjectClass(resolved) ?: continue
             val subject = subjectSelectorOf(ruleset) ?: continue
-            out.putIfAbsent(cls, subject)
+            out.getOrPut(cls) { mutableListOf() }.add(subject)
         }
         return out
     }

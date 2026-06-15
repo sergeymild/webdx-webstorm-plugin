@@ -33,7 +33,7 @@ class BamSelectorsTest : BasePlatformTestCase() {
 
     fun testDeclarationElementIsTheSelector() {
         val scss = myFixture.addFileToProject("src/Bam.module.scss", bam)
-        val decl = BamSelectors.bamClassDeclarations(scss)["sidebar__search"]
+        val decl = BamSelectors.bamClassDeclarations(scss)["sidebar__search"]?.single()
         assertTrue("expected a CssSimpleSelector", decl is CssSimpleSelector)
         assertEquals("&__search", decl!!.text)
     }

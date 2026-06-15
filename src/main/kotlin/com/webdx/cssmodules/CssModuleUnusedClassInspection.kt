@@ -20,8 +20,12 @@ class CssModuleUnusedClassInspection : LocalInspectionTool() {
         // Nothing consumes this module from JS (directly or via @import chain) -> can't tell what's used.
         val used = CssModules.collectUsedClassNames(file) ?: return PsiElementVisitor.EMPTY_VISITOR
 
-        val bamDecls = BamSelectors.bamClassDeclarations(file) // subjectName -> selector element
-        val bamElementToName = bamDecls.entries.associate { (name, el) -> el to name }
+        // subjectName -> every declaring selector element; invert to flag EACH site of an
+        // unused bam class (a class is often declared at several `&__x` / `#{$var}__x` sites).
+        val bamElementToName = HashMap<PsiElement, String>()
+        for ((name, elements) in BamSelectors.bamClassDeclarations(file)) {
+            for (element in elements) bamElementToName[element] = name
+        }
 
         return object : PsiElementVisitor() {
             override fun visitElement(element: PsiElement) {

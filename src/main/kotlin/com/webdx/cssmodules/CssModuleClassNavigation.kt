@@ -63,7 +63,7 @@ internal object CssModuleClassNavigation {
 
         val cssClass = PsiTreeUtil.collectElementsOfType(declaringFile, CssClass::class.java)
             .firstOrNull { it.name?.removePrefix(".") == name }
-        val target = cssClass ?: BamSelectors.bamClassDeclarations(declaringFile)[name]
+        val target = cssClass ?: BamSelectors.bamClassDeclarations(declaringFile)[name]?.firstOrNull()
         if (target == null) {
             log.warn("[CSS-NAV] bail: no CssClass or bam selector for '$name' in ${declaringFile.name}")
             return null
