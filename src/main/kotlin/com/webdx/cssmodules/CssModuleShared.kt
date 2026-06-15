@@ -73,8 +73,9 @@ internal object CssModules {
 
     /** All class names declared in a CSS-module file (deduped, dot stripped). */
     fun collectClassNames(moduleFile: PsiFile): List<String> =
-        PsiTreeUtil.collectElementsOfType(moduleFile, CssClass::class.java)
-            .mapNotNull { it.name?.removePrefix(".")?.takeIf(String::isNotEmpty) }
+        (PsiTreeUtil.collectElementsOfType(moduleFile, CssClass::class.java)
+            .mapNotNull { it.name?.removePrefix(".")?.takeIf(String::isNotEmpty) } +
+            BamSelectors.bamClassDeclarations(moduleFile).keys)
             .distinct()
 
     /** The CSS-module files directly imported by [scssFile] via @import/@use/@forward. */
@@ -311,12 +312,20 @@ internal object CssModules {
             for ((file, bindings) in findImporters(consumer)) {
                 if (!isJsLikeFileName(file.name)) continue // only JS files reference styles.<class>
                 hasJsConsumer = true
-                PsiTreeUtil.collectElements(file) { it.firstChild == null && it.text == "." }
-                    .forEach { dot ->
-                        val qualifier = prevMeaningfulLeaf(dot) ?: return@forEach
-                        if (qualifier.text !in bindings) return@forEach
-                        val member = nextMeaningfulLeaf(dot) ?: return@forEach
-                        if (member.text in ownClasses) used.add(member.text)
+                PsiTreeUtil.collectElements(file) { it.firstChild == null }
+                    .forEach { leaf ->
+                        // dot access: `<binding>.<member>`
+                        if (leaf.text == ".") {
+                            val qualifier = prevMeaningfulLeaf(leaf) ?: return@forEach
+                            if (qualifier.text !in bindings) return@forEach
+                            val member = nextMeaningfulLeaf(leaf) ?: return@forEach
+                            if (member.text in ownClasses) used.add(member.text)
+                            return@forEach
+                        }
+                        // bracket access: `<binding>['member']` (needed for `--`-modifier
+                        // names, which are not valid JS identifiers for dot access)
+                        val (qualifier, member) = bracketMemberAccess(leaf) ?: return@forEach
+                        if (qualifier in bindings && member in ownClasses) used.add(member)
                     }
             }
         }
@@ -333,6 +342,31 @@ internal object CssModules {
         var p = PsiTreeUtil.nextLeaf(el)
         while (p != null && (p is PsiWhiteSpace || p is PsiComment)) p = PsiTreeUtil.nextLeaf(p)
         return p
+    }
+
+    /**
+     * If [stringLeaf] is the key of a `<qualifier>['key']` bracket access, return
+     * (qualifierText, key) with the surrounding quotes stripped; else null. Only static
+     * single/double-quoted keys are recognised (a `styles[variable]` or template literal
+     * is dynamic and yields null). Used so `--`-modifier class names — which are not valid
+     * JS identifiers for dot access — are seen by the usage/unknown/find-usages scanners.
+     */
+    fun bracketMemberAccess(stringLeaf: PsiElement): Pair<String, String>? {
+        if (stringLeaf.firstChild != null) return null // leaves only
+        val key = stripQuotes(stringLeaf.text) ?: return null
+        val open = prevMeaningfulLeaf(stringLeaf) ?: return null
+        if (open.text != "[") return null
+        val qualifier = prevMeaningfulLeaf(open) ?: return null
+        val q = qualifier.text
+        if (q.isEmpty() || !q.first().isJavaIdentifierStart()) return null
+        return q to key
+    }
+
+    private fun stripQuotes(s: String): String? {
+        if (s.length < 2) return null
+        val quote = s.first()
+        if ((quote == '\'' || quote == '"') && s.last() == quote) return s.substring(1, s.length - 1)
+        return null
     }
 
     /**

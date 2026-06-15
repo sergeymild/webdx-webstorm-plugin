@@ -170,6 +170,78 @@ class CssModuleInspectionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testBamClassNotFlaggedAsUnknown() {
+        myFixture.addFileToProject(
+            "src/Bam.module.scss",
+            "\$sidebar: '.sidebar';\n#{\$sidebar} {\n  &__search { display: none; }\n}",
+        )
+        val tsx = myFixture.addFileToProject(
+            "src/Use.tsx",
+            "import styles from './Bam.module.scss';\nconst x = styles.sidebar__search;",
+        )
+        myFixture.configureFromExistingVirtualFile(tsx.virtualFile)
+        myFixture.enableInspections(CssModuleUnknownClassInspection())
+        val descriptions = myFixture.doHighlighting().mapNotNull { it.description }
+        assertFalse(
+            "bam class must not be flagged unknown, got: $descriptions",
+            descriptions.any { it.contains("Unknown CSS module class") },
+        )
+    }
+
+    fun testUnusedBamClassIsReported() {
+        myFixture.addFileToProject(
+            "src/Use.tsx",
+            "import styles from './Bam.module.scss';\nconst x = styles.sidebar__search;",
+        )
+        val scss = myFixture.addFileToProject(
+            "src/Bam.module.scss",
+            "\$sidebar: '.sidebar';\n#{\$sidebar} {\n" +
+                "  &__search { display: none; }\n" +
+                "  &__dead { display: none; }\n}",
+        )
+        myFixture.configureFromExistingVirtualFile(scss.virtualFile)
+        myFixture.enableInspections(CssModuleUnusedClassInspection())
+
+        val descriptions = myFixture.doHighlighting().mapNotNull { it.description }
+        assertTrue(
+            "expected 'sidebar__dead' unused, got: $descriptions",
+            descriptions.any { it.contains("'sidebar__dead'") && it.contains("not used") },
+        )
+        assertFalse(
+            "'sidebar__search' is used and must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("'sidebar__search'") },
+        )
+    }
+
+    fun testAllDeclarationSitesOfUnusedBamClassAreFlagged() {
+        // A bam class declared at MULTIPLE selector sites (the `#{$sidebar}__x` form inside
+        // `&--expanded` AND the top-level `&__x`) must be greyed at EVERY site when unused,
+        // matching how a literal `.foo` declared twice is flagged at both occurrences.
+        myFixture.addFileToProject(
+            "src/Use.tsx",
+            "import styles from './Bam.module.scss';\nconst x = styles.sidebar__content;",
+        )
+        val scss = myFixture.addFileToProject(
+            "src/Bam.module.scss",
+            "\$sidebar: '.sidebar';\n#{\$sidebar} {\n" +
+                "  &--expanded { #{\$sidebar}__search { display: block; } }\n" +
+                "  &__search { display: none; }\n" + // second declaration site of sidebar__search
+                "  &__content { width: 100%; }\n" +
+                "}",
+        )
+        myFixture.configureFromExistingVirtualFile(scss.virtualFile)
+        myFixture.enableInspections(CssModuleUnusedClassInspection())
+
+        val flaggedSearch = myFixture.doHighlighting().filter {
+            it.description?.contains("'sidebar__search'") == true && it.description!!.contains("not used")
+        }
+        assertEquals(
+            "both sidebar__search declaration sites must be greyed, got: ${flaggedSearch.map { it.text }}",
+            2,
+            flaggedSearch.size,
+        )
+    }
+
     fun testImportedClassIsNotFlaggedAsUnknown() {
         myFixture.addFileToProject("src/common.module.scss", ".nextButton { color: red; }")
         myFixture.addFileToProject(
@@ -196,6 +268,57 @@ class CssModuleInspectionTest : BasePlatformTestCase() {
         assertTrue(
             "expected 'doesNotExist' still flagged, got: $descriptions",
             descriptions.any { it.contains("Unknown CSS module class 'doesNotExist'") },
+        )
+    }
+
+    // --- bracket access: styles['class--mod'] -----------------------------
+
+    fun testBracketAccessedBamClassIsNotUnused() {
+        // `sidebar--expanded` (a `--` modifier) can only be referenced via bracket access
+        // `styles['sidebar--expanded']`; it must count as used and NOT be greyed.
+        myFixture.addFileToProject(
+            "src/Use.tsx",
+            "import styles from './Bam.module.scss';\nconst x = styles['sidebar--expanded'];",
+        )
+        val scss = myFixture.addFileToProject(
+            "src/Bam.module.scss",
+            "\$sidebar: '.sidebar';\n#{\$sidebar} {\n  &--expanded { color: red; }\n  &--dead { color: blue; }\n}",
+        )
+        myFixture.configureFromExistingVirtualFile(scss.virtualFile)
+        myFixture.enableInspections(CssModuleUnusedClassInspection())
+
+        val descriptions = myFixture.doHighlighting().mapNotNull { it.description }
+        assertFalse(
+            "bracket-used 'sidebar--expanded' must NOT be unused, got: $descriptions",
+            descriptions.any { it.contains("'sidebar--expanded'") },
+        )
+        assertTrue(
+            "'sidebar--dead' should be unused, got: $descriptions",
+            descriptions.any { it.contains("'sidebar--dead'") && it.contains("not used") },
+        )
+    }
+
+    fun testBracketUnknownClassIsFlagged() {
+        myFixture.addFileToProject(
+            "Bam.module.scss",
+            "\$sidebar: '.sidebar';\n#{\$sidebar} {\n  &--expanded { color: red; }\n}",
+        )
+        myFixture.configureByText(
+            "Use.tsx",
+            "import styles from './Bam.module.scss';\n" +
+                "const a = styles['sidebar--expanded'];\n" +
+                "const b = styles['nope--missing'];",
+        )
+        myFixture.enableInspections(CssModuleUnknownClassInspection())
+
+        val descriptions = myFixture.doHighlighting().mapNotNull { it.description }
+        assertTrue(
+            "typo bracket class 'nope--missing' should be flagged, got: $descriptions",
+            descriptions.any { it.contains("Unknown CSS module class 'nope--missing'") },
+        )
+        assertFalse(
+            "valid bracket class 'sidebar--expanded' must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("'sidebar--expanded'") },
         )
     }
 }

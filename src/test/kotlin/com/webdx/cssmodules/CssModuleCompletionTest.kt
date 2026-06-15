@@ -72,6 +72,23 @@ class CssModuleCompletionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testCompletesBamClassNames() {
+        myFixture.addFileToProject(
+            "Bam.module.scss",
+            "\$sidebar: '.sidebar';\n#{\$sidebar} {\n  &__search { display: none; }\n}",
+        )
+        myFixture.configureByText(
+            "Use.tsx",
+            "import styles from './Bam.module.scss';\nconst x = styles.<caret>;",
+        )
+        myFixture.completeBasic()
+        val suggestions = myFixture.lookupElementStrings ?: emptyList()
+        assertTrue(
+            "expected bam classes, got $suggestions",
+            suggestions.containsAll(listOf("sidebar", "sidebar__search")),
+        )
+    }
+
     fun testTypeTextShowsTheDeclaringFilePerClass() {
         myFixture.addFileToProject("common.module.scss", ".nextButton { } .note { }")
         myFixture.addFileToProject(
@@ -96,5 +113,47 @@ class CssModuleCompletionTest : BasePlatformTestCase() {
         assertEquals("common.module.scss", typeTextOf("nextButton"))
         assertEquals("common.module.scss", typeTextOf("note"))
         assertEquals("Comp.module.scss", typeTextOf("local"))
+    }
+
+    fun testCompletingModifierClassInsertsBracketAccess() {
+        // `sidebar--expanded` is not a valid JS identifier, so completing it must insert
+        // bracket access `bamExample['sidebar--expanded']`, not the broken dot form.
+        myFixture.addFileToProject(
+            "Bam.module.scss",
+            "\$sidebar: '.sidebar';\n#{\$sidebar} {\n  &--expanded { color: red; }\n}",
+        )
+        myFixture.configureByText(
+            "Use.tsx",
+            "import bamExample from './Bam.module.scss';\nconst x = bamExample.<caret>;",
+        )
+        val items = myFixture.completeBasic()
+        if (items != null) {
+            val lookup = myFixture.lookup as com.intellij.codeInsight.lookup.impl.LookupImpl
+            lookup.currentItem = lookup.items.first { it.lookupString == "sidebar--expanded" }
+            myFixture.type('\n')
+        }
+        val text = myFixture.file.text
+        assertTrue("expected bracket access, got:\n$text", text.contains("bamExample['sidebar--expanded']"))
+        assertFalse("must not leave invalid dot access, got:\n$text", text.contains("bamExample.sidebar--expanded"))
+    }
+
+    fun testCompletingIdentifierClassKeepsDotAccess() {
+        // `sidebar__search` IS a valid identifier — dot access must be preserved.
+        myFixture.addFileToProject(
+            "Bam.module.scss",
+            "\$sidebar: '.sidebar';\n#{\$sidebar} {\n  &__search { color: red; }\n}",
+        )
+        myFixture.configureByText(
+            "Use.tsx",
+            "import bamExample from './Bam.module.scss';\nconst x = bamExample.sidebar__sea<caret>;",
+        )
+        val items = myFixture.completeBasic()
+        if (items != null) {
+            val lookup = myFixture.lookup as com.intellij.codeInsight.lookup.impl.LookupImpl
+            lookup.currentItem = lookup.items.first { it.lookupString == "sidebar__search" }
+            myFixture.type('\n')
+        }
+        val text = myFixture.file.text
+        assertTrue("expected dot access preserved, got:\n$text", text.contains("bamExample.sidebar__search"))
     }
 }

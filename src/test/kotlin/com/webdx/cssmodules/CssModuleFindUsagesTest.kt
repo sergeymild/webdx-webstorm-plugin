@@ -70,6 +70,38 @@ class CssModuleFindUsagesTest : BasePlatformTestCase() {
         assertEquals("B.tsx", usages.first().element?.containingFile?.name)
     }
 
+    fun testFindsBamClassUsagesInImporters() {
+        val scss = myFixture.addFileToProject(
+            "Bam.module.scss",
+            "\$sidebar: '.sidebar';\n#{\$sidebar} {\n  &__search { display: none; }\n}",
+        )
+        myFixture.addFileToProject(
+            "Use.tsx",
+            "import styles from './Bam.module.scss';\nconst a = styles.sidebar__search;\nconst b = styles.sidebar__search;",
+        )
+        // Place the target on the `&__search` selector leaf.
+        val offset = scss.text.indexOf("&__search") + 3
+        val element = scss.findElementAt(offset)!!
+        val usages = myFixture.findUsages(element)
+        assertEquals("usages: ${usages.map { it.element?.text }}", 2, usages.size)
+    }
+
+    fun testFindsBamClassUsagesViaBracketAccess() {
+        val scss = myFixture.addFileToProject(
+            "Bam.module.scss",
+            "\$sidebar: '.sidebar';\n#{\$sidebar} {\n  &--expanded { color: red; }\n}",
+        )
+        myFixture.addFileToProject(
+            "Use.tsx",
+            "import styles from './Bam.module.scss';\n" +
+                "const a = styles['sidebar--expanded'];\nconst b = styles['sidebar--expanded'];",
+        )
+        val offset = scss.text.indexOf("&--expanded") + 3
+        val element = scss.findElementAt(offset)!!
+        val usages = myFixture.findUsages(element)
+        assertEquals("usages: ${usages.map { it.element?.text }}", 2, usages.size)
+    }
+
     fun testReportsUsagesThroughAtImportChain() {
         // common is @import-ed into Comp.module.scss (CSS-to-CSS); Comp.tsx uses styles.shared.
         myFixture.addFileToProject(

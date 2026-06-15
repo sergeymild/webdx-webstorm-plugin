@@ -26,20 +26,9 @@ internal object CssModuleClassNavigation {
         val file = rawFile.originalFile
         if (!CssModules.isJsLikeFileName(file.name)) return null
 
-        val name = element.text
-        if (name.isEmpty() || !name.first().isJavaIdentifierStart()) return null
-
-        val dot = CssModules.prevMeaningfulLeaf(element) ?: return null
-        if (dot.text != ".") return null
-        val qualifier = CssModules.prevMeaningfulLeaf(dot) ?: return null
-        val binding = qualifier.text
-
-        // DIAGNOSTIC (temporary): from here we know it's a `<binding>.<name>` access.
-        // Log each bail point so we can see exactly why resolution fails. Grep "[CSS-NAV]".
-        if (binding.isEmpty() || !binding.first().isJavaIdentifierStart()) {
-            log.warn("[CSS-NAV] bail: qualifier '$binding' not identifier (name='$name')")
-            return null
-        }
+        // `<binding>.<name>` (caret on the member) OR `<binding>['name']` (caret on the
+        // string literal — needed for `--`-modifier classes that aren't valid identifiers).
+        val (binding, name) = memberAccessAt(element) ?: return null
 
         val moduleFile = CssModules.resolveModuleForBinding(file, binding)
         if (moduleFile == null) {
@@ -63,22 +52,47 @@ internal object CssModuleClassNavigation {
 
         val cssClass = PsiTreeUtil.collectElementsOfType(declaringFile, CssClass::class.java)
             .firstOrNull { it.name?.removePrefix(".") == name }
-        if (cssClass == null) {
-            log.warn("[CSS-NAV] bail: no CssClass PSI for '$name' in ${declaringFile.name}")
+        val target = cssClass ?: BamSelectors.bamClassDeclarations(declaringFile)[name]?.firstOrNull()
+        if (target == null) {
+            log.warn("[CSS-NAV] bail: no CssClass or bam selector for '$name' in ${declaringFile.name}")
             return null
         }
 
         log.warn("[CSS-NAV] OK: '$binding.$name' -> ${declaringFile.name} (module=${moduleFile.name})")
-        return cssClass
+        return target
+    }
+
+    /**
+     * The `(binding, className)` of a CSS-module member access at the leaf [element], or
+     * null. Handles dot access `<binding>.<name>` (caret on the member identifier) and
+     * static bracket access `<binding>['name']` (caret on the string literal).
+     */
+    private fun memberAccessAt(element: PsiElement): Pair<String, String>? {
+        // bracket: `<binding>['name']`
+        CssModules.bracketMemberAccess(element)?.let { return it }
+        // dot: `<binding>.<name>`
+        val name = element.text
+        if (name.isEmpty() || !name.first().isJavaIdentifierStart()) return null
+        val dot = CssModules.prevMeaningfulLeaf(element) ?: return null
+        if (dot.text != ".") return null
+        val binding = CssModules.prevMeaningfulLeaf(dot)?.text ?: return null
+        if (binding.isEmpty() || !binding.first().isJavaIdentifierStart()) return null
+        return binding to name
     }
 
     private fun importLineFor(text: String, binding: String): String =
         Regex("""import\s+${Regex.escape(binding)}\s+from\s+['"][^'"]+['"]""")
             .find(text)?.value ?: "<no match>"
 
-    /** True when [element] is a `<identifier> . <identifier>` member-access leaf (cheap shape check for logging). */
+    /**
+     * True when [element] is a CSS-module member-access leaf — either `<binding>.<name>`
+     * (dot) or `<binding>['name']` (static bracket). Used by the GotoDeclaration action to
+     * decide whether to attempt resolution, so it MUST cover bracket access for
+     * `--`-modifier classes that can only be written with brackets.
+     */
     fun isMemberAccessLeaf(element: PsiElement): Boolean {
         if (element.firstChild != null) return false
+        if (CssModules.bracketMemberAccess(element) != null) return true
         val name = element.text
         if (name.isEmpty() || !name.first().isJavaIdentifierStart()) return false
         return CssModules.prevMeaningfulLeaf(element)?.text == "."

@@ -84,6 +84,17 @@ they work regardless of how (or whether) the TS service types the import.
    classes are still flagged.
    → `CssModuleUnusedClassInspection`
 
+6a. **"bam" interpolated / `&`-nested BEM classes.**
+   Classes produced by a string `$var` used as a selector (`$sidebar: '.sidebar';
+   #{$sidebar} { &__search {} }` → `sidebar`, `sidebar__search`) have no `CssClass`
+   node, so they were invisible. They are now resolved from source PSI and treated
+   like real classes by completion, the unknown/unused inspections, go-to, and Find
+   Usages. Plain literal-parent BEM (`.foo { &__bar {} }`) is covered too. The block
+   variable may be local or imported from a directly `@import`/`@use`-d file (bare
+   `#{$var}`, default-namespaced `#{vars.$var}`, aliased `#{v.$var}`). Out of scope:
+   transitive/`@forward` reach, `@each`/`@for`, Sass maps, non-string values.
+   → `BamSelectors`, `CssModules.collectClassNames`
+
 ### CSS module `@import` chains (Sass overrides & navigation)
 
 Sass inlines an `@import`-ed `.module.scss` into the importing module's local scope,
@@ -254,6 +265,7 @@ src/main/kotlin/com/webdx/cssmodules/
   CssModuleStylesCompletion.kt        // feature 4
   CssModuleUnknownClassInspection.kt  // feature 5
   CssModuleUnusedClassInspection.kt   // feature 6
+  BamSelectors.kt                     // feature 6a: interpolated/&-nested BEM resolver
   CssModuleOverrideClassInspection.kt // overrides-imported-class warning
   CssModuleClassNavigation.kt         // shared styles.<class> -> effective decl resolver
   CssModuleGotoDeclarationAction.kt   // overrides GotoDeclaration for styles.<class>
@@ -579,9 +591,9 @@ triggers (probed — no highlights, no quick-fixes). Verify it manually in the I
 - `styles.<class>` go-to only intercepts the `GotoDeclaration` action; a non-standard
   keybinding/gesture bound to a *different* navigation action isn't covered.
 - Quick-fix on the "Unknown CSS class" inspection (create the class in the module).
-- Handle bracket access `styles['kebab-case']` for the inspections.
 - Suppress the "unused" warning when a module is accessed dynamically
-  (`styles[variable]`) in an importer.
+  (`styles[variable]`) in an importer. (Static bracket access `styles['kebab-case']`
+  is already handled by `CssModules.bracketMemberAccess`.)
 - Rename for `styles.foo` ↔ the CSS class.
 - Collapse the per-dialect registrations of the unused/unknown inspections to a single
   `language="CSS"` each (same dialect-duplication risk as gotcha #9).

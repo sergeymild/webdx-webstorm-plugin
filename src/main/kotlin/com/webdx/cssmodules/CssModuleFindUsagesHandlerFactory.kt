@@ -47,7 +47,8 @@ class CssModuleFindUsagesHandlerFactory : FindUsagesHandlerFactory() {
                     "parents=[${parentChain(element)}]"
             )
         }
-        return isModule && cssClass != null
+        val isBam = BamSelectors.bamClassForElement(element) != null
+        return isModule && (cssClass != null || isBam)
     }
 
     private fun parentChain(element: PsiElement): String {
@@ -87,8 +88,10 @@ class CssModuleFindUsagesHandlerFactory : FindUsagesHandlerFactory() {
         // All PSI access below needs a read action; processElementUsages runs on a
         // pooled thread without one.
         return ReadAction.compute<Boolean, RuntimeException> {
-            val cssClass = resolveCssClass(target) ?: return@compute true
-            val className = cssClass.name?.removePrefix(".")?.takeIf { it.isNotEmpty() } ?: return@compute true
+            val cssClass = resolveCssClass(target)
+            val className = (cssClass?.name?.removePrefix(".")?.takeIf { it.isNotEmpty() }
+                ?: BamSelectors.bamClassForElement(target))
+                ?: return@compute true
             val moduleFile = target.containingFile ?: return@compute true
             val project = moduleFile.project
             val psiManager = com.intellij.psi.PsiManager.getInstance(project)
@@ -107,6 +110,7 @@ class CssModuleFindUsagesHandlerFactory : FindUsagesHandlerFactory() {
 
             var count = 0
             for ((file, bindings) in jsImporters) {
+                // dot access: `<binding>.className`
                 val leaves = PsiTreeUtil.collectElements(file) { el ->
                     el.firstChild == null && el.textLength == className.length && el.text == className
                 }
@@ -115,6 +119,14 @@ class CssModuleFindUsagesHandlerFactory : FindUsagesHandlerFactory() {
                     if (dot.text != ".") continue // must be a `.className` property access
                     val qualifier = prevMeaningfulLeaf(dot) ?: continue
                     if (qualifier.text !in bindings) continue // qualified by a module import binding
+                    if (!processor.process(UsageInfo(leaf))) return@compute false
+                    count++
+                }
+                // bracket access: `<binding>['className']` (e.g. `--`-modifier names)
+                val bracketLeaves = PsiTreeUtil.collectElements(file) { it.firstChild == null }
+                for (leaf in bracketLeaves) {
+                    val (qualifier, member) = CssModules.bracketMemberAccess(leaf) ?: continue
+                    if (member != className || qualifier !in bindings) continue
                     if (!processor.process(UsageInfo(leaf))) return@compute false
                     count++
                 }
