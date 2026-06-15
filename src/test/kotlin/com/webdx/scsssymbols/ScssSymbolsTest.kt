@@ -42,8 +42,13 @@ class ScssSymbolsTest : BasePlatformTestCase() {
         assertTrue("mixin include", has("safe", ScssSymbols.Kind.MIXIN, null))
         assertTrue("ns mixin", has("safe2", ScssSymbols.Kind.MIXIN, "ns"))
         assertTrue("placeholder extend", has("card", ScssSymbols.Kind.PLACEHOLDER, null))
-        // the `$a:` declaration LHS is NOT a reference
-        assertFalse("decl LHS not a ref", refs.any { it.kind == ScssSymbols.Kind.VARIABLE && it.name == "a" && it.element.textOffset == scss.text.indexOf("\$a: 1") })
+        // the `$a:` declaration LHS is excluded; only the two usages (`width: $a`,
+        // `calcSize($a)`) count as references — without the exclusion this would be 3.
+        assertEquals(
+            "decl LHS must be excluded; only usages counted",
+            2,
+            refs.count { it.kind == ScssSymbols.Kind.VARIABLE && it.name == "a" },
+        )
     }
 
     fun testReferenceAtClassifiesCaret() {
