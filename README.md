@@ -6,19 +6,32 @@ language service** — important here because this project runs on the experimen
 **TypeScript-Go (tsgo)** engine, which does not load TS service plugins like
 `typescript-plugin-css-modules`.
 
-Two feature areas:
+Feature areas:
 - **CSS Modules** — scoped Find Usages, sibling-module auto-import, `styles.`
   class-name completion, unknown/unused-class inspections, full Sass `@import`-chain
   awareness (completion/inspections/Find Usages see inlined classes), an
   overrides-imported-class warning, go-to the effective `styles.<class>` declaration,
   and an Alt+Enter `@import` for name-resolved SCSS mixins/functions/vars/placeholders.
-- **i18n (`react-i18next`)** — translation-key completion, unknown-key inspection,
+  Also recognises **"bam" classes** built from a string `$var` selector via `#{$var}`
+  interpolation + `&`-BEM nesting (`#{$sidebar} { &__search {} }`), and **bracket access**
+  `styles['kebab--class']` (completion inserts brackets for non-identifier names; go-to /
+  inspections / Find Usages read them).
+- **i18n (`react-i18next`)** — translation-key completion, unknown-key inspection
+  (i18next plural/ordinal-aware: a base `key` is valid when only `key_one`/`key_other`/… exist),
   go-to-definition + scoped Find Usages on a key, and interpolation tooling
   (option-object completion, checks, and go-to-placeholder) for `t('key', { … })`.
 - **React Native `StyleSheet.create`** — on `styles.<key>` (and `const { key } = styles`):
   go-to the key declaration, scoped Find Usages, unknown-key and unused-key inspections,
-  plus sibling auto-import of `styles`.
-  Source-resolved (no TS service); covers inline and exported+imported style objects.
+  plus sibling auto-import of `styles`. Source-resolved (no TS service); covers inline,
+  named `export const`, and `export default StyleSheet.create({…})` objects; static
+  `styles['key']` counts as a use and a dynamic `styles[`a${x}`]` access never false-flags.
+- **Dead exports / dead barrels** — greys re-exports (`export … from`) and directly-declared
+  exports that no real consumer reaches through the import/re-export graph (Next.js entry
+  points excluded).
+- **SCSS symbol usage** — project-wide unused inspection, Find Usages, and go-to for
+  `$variables`, `@function`s, `@mixin`s, and `%placeholder`s, resolved through the real
+  `@use`/`@import`/`@forward` graph (full transitivity, namespace-aware). Cmd+Click a
+  declaration to Show Usages.
 
 The plugin id stays `com.webdx.css-modules-scoped-usages` (kept for update
 continuity); only the display name is **WebDX**.
