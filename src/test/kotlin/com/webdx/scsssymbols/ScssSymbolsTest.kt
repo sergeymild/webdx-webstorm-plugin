@@ -27,4 +27,30 @@ class ScssSymbolsTest : BasePlatformTestCase() {
         // `$a` used in `.x` is NOT a second declaration; `foo` include is not a declaration
         assertEquals(listOf("a"), ScssSymbols.declarationsIn(scss).map { it.name })
     }
+
+    fun testReferencesInAllForms() {
+        val scss = myFixture.addFileToProject(
+            "f.scss",
+            "\$a: 1;\n.x {\n  width: \$a;\n  height: v.\$b;\n  margin: calcSize(\$a);\n  @include safe;\n  @include ns.safe2;\n  @extend %card;\n}",
+        )
+        val refs = ScssSymbols.referencesIn(scss)
+        fun has(name: String, kind: ScssSymbols.Kind, ns: String?) =
+            refs.any { it.name == name && it.kind == kind && it.namespace == ns }
+        assertTrue("bare var", has("a", ScssSymbols.Kind.VARIABLE, null))
+        assertTrue("ns var", has("b", ScssSymbols.Kind.VARIABLE, "v"))
+        assertTrue("function call", has("calcSize", ScssSymbols.Kind.FUNCTION, null))
+        assertTrue("mixin include", has("safe", ScssSymbols.Kind.MIXIN, null))
+        assertTrue("ns mixin", has("safe2", ScssSymbols.Kind.MIXIN, "ns"))
+        assertTrue("placeholder extend", has("card", ScssSymbols.Kind.PLACEHOLDER, null))
+        // the `$a:` declaration LHS is NOT a reference
+        assertFalse("decl LHS not a ref", refs.any { it.kind == ScssSymbols.Kind.VARIABLE && it.name == "a" && it.element.textOffset == scss.text.indexOf("\$a: 1") })
+    }
+
+    fun testReferenceAtClassifiesCaret() {
+        val scss = myFixture.addFileToProject("f.scss", "\$a: 1;\n.x { width: \$a; }")
+        val offset = scss.text.lastIndexOf("\$a") + 1 // inside the usage `$a`
+        val ref = ScssSymbols.referenceAt(scss.findElementAt(offset)!!)
+        assertEquals("a", ref!!.name)
+        assertEquals(ScssSymbols.Kind.VARIABLE, ref.kind)
+    }
 }
