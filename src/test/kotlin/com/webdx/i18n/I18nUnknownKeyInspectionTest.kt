@@ -9,7 +9,14 @@ class I18nUnknownKeyInspectionTest : BasePlatformTestCase() {
         super.setUp()
         myFixture.addFileToProject(
             "src/lang/translations/en.json",
-            """{ "common": { "action": { "copy": "Copy" } }, "page": { "title": "T" } }""",
+            """{
+                "common": { "action": { "copy": "Copy" } },
+                "page": { "title": "T" },
+                "count": {
+                    "likes_one": "1 like", "likes_other": "{{count}} likes",
+                    "place_ordinal_one": "1st", "place_ordinal_other": "{{count}}th"
+                }
+            }""",
         )
         myFixture.addFileToProject(
             "src/lang/initLocales.ts",
@@ -38,6 +45,25 @@ class I18nUnknownKeyInspectionTest : BasePlatformTestCase() {
             "import { useTranslation } from 'react-i18next';\nconst x = t('common.action.copy');",
         )
         assertTrue(unknownKeyWarnings().isEmpty())
+    }
+
+    fun testNoWarningForPluralBaseKey() {
+        // Code calls the BASE key with {count}; i18next resolves count.likes_one/_other at runtime.
+        myFixture.configureByText(
+            "C.tsx",
+            "import { useTranslation } from 'react-i18next';\n" +
+                "const a = t('count.likes', { count: 3 });\n" +
+                "const b = t('count.place', { count: 3, ordinal: true });",
+        )
+        assertTrue("plural/ordinal base keys must not be flagged, got: ${unknownKeyWarnings()}", unknownKeyWarnings().isEmpty())
+    }
+
+    fun testStillFlagsTrulyMissingKeyUnderPluralBranch() {
+        myFixture.configureByText(
+            "C.tsx",
+            "import { useTranslation } from 'react-i18next';\nconst x = t('count.bogus');",
+        )
+        assertEquals(listOf("Unknown translation key 'count.bogus'"), unknownKeyWarnings())
     }
 
     fun testIgnoresDynamicTemplateLiteral() {

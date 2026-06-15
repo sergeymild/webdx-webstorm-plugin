@@ -19,6 +19,16 @@ Build a distributable zip: `./gradlew buildPlugin` → `build/distributions/webd
 `BasePlatformTestCase`). All features resolve from source files, so they work on the
 tsgo engine where the TS language service doesn't load plugins.
 
+## 1.9.1 — 2026-06-15
+- **Fix: i18n unknown-key false positives on i18next plural/ordinal keys.** When the locale JSON
+  stores only the suffixed variants (`likes_one`/`likes_other`/`likes_zero`, or
+  `place_ordinal_one`/`_other`) and code calls the **base** key with `{count}`
+  (`t('count.likes', { count })`), i18next resolves the variant at runtime — but the inspection
+  flagged the base key as "Unknown translation key". A key is now considered known when it exists
+  literally OR a CLDR plural/ordinal variant exists (`key_{zero,one,two,few,many,other}` /
+  `key_ordinal_{…}`). Found by auditing the real project (60 plural keys → many false positives).
+  (`I18nKeys.isKnownKey`, used by `I18nUnknownKeyInspection`.)
+
 ## 1.9.0 — 2026-06-15
 - **New: SCSS symbol usage** (`com.webdx.scsssymbols`). Project-wide support for `$variables`,
   `@function`s, `@mixin`s, and `%placeholder`s, resolved through the real

@@ -15,7 +15,7 @@ class I18nUnknownKeyInspection : LocalInspectionTool() {
                 val key = I18nCallSites.keyOf(element) ?: return
                 val keys = I18nKeyIndex.keys(element.project)
                 if (keys.isEmpty()) return // no key source located -> stay silent
-                if (key !in keys) {
+                if (!I18nKeys.isKnownKey(key, keys)) {
                     holder.registerProblem(
                         element,
                         "Unknown translation key '$key'",
