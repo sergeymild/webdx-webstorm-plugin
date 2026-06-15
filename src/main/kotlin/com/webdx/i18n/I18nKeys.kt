@@ -17,6 +17,23 @@ internal object I18nKeys {
         return out
     }
 
+    // i18next CLDR plural categories. A base key `k` used with `{count}` resolves at runtime to
+    // a suffixed variant (`k_one`/`k_other`/…, or `k_ordinal_one`/… for ordinals).
+    private val PLURAL_SUFFIXES = listOf("zero", "one", "two", "few", "many", "other")
+
+    /**
+     * True when [key] is a valid translation key against [keys]: present literally, OR an
+     * i18next plural/ordinal base whose suffixed variant exists (the locale JSON stores
+     * `key_one`/`key_other` while code calls the base `key` with `{count}`).
+     */
+    fun isKnownKey(key: String, keys: Set<String>): Boolean {
+        if (key in keys) return true
+        for (cat in PLURAL_SUFFIXES) {
+            if ("${key}_$cat" in keys || "${key}_ordinal_$cat" in keys) return true
+        }
+        return false
+    }
+
     /** The `{{placeholder}}` names interpolated in a translation [value] (`{{x, fmt}}` -> `x`). */
     fun placeholdersOf(value: String): Set<String> =
         PLACEHOLDER.findAll(value)

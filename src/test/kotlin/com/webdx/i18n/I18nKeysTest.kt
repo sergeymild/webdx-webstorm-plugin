@@ -53,4 +53,17 @@ class I18nKeysTest : BasePlatformTestCase() {
         })
         assertEquals("page", branch)
     }
+
+    fun testIsKnownKeyHandlesPluralAndOrdinalBases() {
+        val keys = setOf(
+            "b.title",
+            "a.likes_one", "a.likes_other",
+            "c.place_ordinal_one", "c.place_ordinal_other",
+        )
+        assertTrue("literal key", I18nKeys.isKnownKey("b.title", keys))
+        assertTrue("plural base", I18nKeys.isKnownKey("a.likes", keys))
+        assertTrue("ordinal base", I18nKeys.isKnownKey("c.place", keys))
+        assertFalse("truly missing", I18nKeys.isKnownKey("a.missing", keys))
+        assertFalse("partial-name not a base", I18nKeys.isKnownKey("a.like", keys))
+    }
 }
