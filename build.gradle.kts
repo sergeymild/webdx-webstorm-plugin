@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.webdx"
-version = "1.9.1"
+version = "1.9.2"
 
 repositories {
     mavenCentral()

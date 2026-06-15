@@ -19,6 +19,17 @@ Build a distributable zip: `./gradlew buildPlugin` → `build/distributions/webd
 `BasePlatformTestCase`). All features resolve from source files, so they work on the
 tsgo engine where the TS language service doesn't load plugins.
 
+## 1.9.2 — 2026-06-15
+- **Fix (RN): no false "unused style" on dynamic/bracket access.** `RnStyles.collectUsedKeys` only
+  counted dot access + destructuring. A static `styles['key']` now counts as a use, and a
+  computed/dynamic key (`styles[`a${count}`]` / `styles[v]`) is treated as using *all* keys (it
+  can't be resolved), so its keys are no longer falsely greyed. (Found auditing
+  `react-native-musescore`.)
+- **New (RN): support `export default StyleSheet.create({…})`.** Default-export StyleSheet objects
+  (no binding name, consumed via `import X from './styles'`) are now resolved: go-to on `X.key`,
+  the "unknown style key" inspection, and the "unused style key" inspection (scoped via
+  default-importers) all work. (`RnStyles.defaultExportStyleSheet` / `importersForDefaultExport`.)
+
 ## 1.9.1 — 2026-06-15
 - **Fix: i18n unknown-key false positives on i18next plural/ordinal keys.** When the locale JSON
   stores only the suffixed variants (`likes_one`/`likes_other`/`likes_zero`, or
