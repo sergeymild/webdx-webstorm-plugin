@@ -29,6 +29,9 @@
         <findUsagesHandlerFactory
             order="first"
             implementation="com.webdx.rnstyles.RnStyleFindUsagesHandlerFactory"/>
+        <findUsagesHandlerFactory
+            order="first"
+            implementation="com.webdx.scsssymbols.ScssSymbolFindUsagesHandlerFactory"/>
         <gotoDeclarationHandler
             implementation="com.webdx.cssmodules.CssModuleGotoDeclarationHandler"/>
         <gotoDeclarationHandler
