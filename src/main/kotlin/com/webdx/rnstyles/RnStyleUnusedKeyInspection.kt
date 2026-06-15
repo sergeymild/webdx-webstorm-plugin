@@ -20,7 +20,8 @@ class RnStyleUnusedKeyInspection : LocalInspectionTool() {
         val file = holder.file
         if (!CssModules.isJsLikeFileName(file.name)) return PsiElementVisitor.EMPTY_VISITOR
 
-        val localObjects = RnStyles.fileStyleSheets(file).values.toSet()
+        val localObjects = (RnStyles.fileStyleSheets(file).values +
+            listOfNotNull(RnStyles.defaultExportStyleSheet(file))).toSet()
         if (localObjects.isEmpty()) return PsiElementVisitor.EMPTY_VISITOR
 
         val usedByObj = HashMap<JSObjectLiteralExpression, Set<String>>()

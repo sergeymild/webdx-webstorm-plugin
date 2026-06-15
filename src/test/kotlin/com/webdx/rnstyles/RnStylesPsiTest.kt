@@ -163,6 +163,26 @@ class RnStylesPsiTest : BasePlatformTestCase() {
         assertEquals(setOf("a", "b"), RnStyles.collectUsedKeys(obj))
     }
 
+    fun testResolvesDefaultExportStyleSheet() {
+        myFixture.addFileToProject(
+            "bannerStyles.ts",
+            "import { StyleSheet } from 'react-native'\nexport default StyleSheet.create({ banner: { flex: 1 }, title: { flex: 1 } })",
+        )
+        val consumer = myFixture.addFileToProject(
+            "Banner.tsx",
+            "import b from './bannerStyles'\nconst x = b.banner",
+        )
+        // go-to side: resolveStyleSheetForBinding finds the default-exported sheet
+        val obj = RnStyles.resolveStyleSheetForBinding(consumer, "b")
+        assertNotNull("default-export stylesheet should resolve via default import", obj)
+        assertEquals(listOf("banner", "title"), RnStyles.styleKeys(obj!!))
+        assertNotNull(RnStyles.keyProperty(obj, "banner"))
+        // unknown-inspection side: bindingsInFile includes the default import binding
+        val b = RnStyles.bindingsInFile(consumer)["b"]
+        assertNotNull("bindingsInFile should include default import", b)
+        assertEquals(setOf("banner", "title"), RnStyles.styleKeys(b!!).toSet())
+    }
+
     fun testDynamicComputedAccessSuppressesUnused() {
         val file = myFixture.addFileToProject(
             "S2.tsx",

@@ -90,7 +90,33 @@ internal object RnStyles {
         return out
     }
 
+    /** The object of `export default StyleSheet.create({...})` in [file] (no binding name), or null. */
+    fun defaultExportStyleSheet(file: PsiFile): JSObjectLiteralExpression? {
+        for (call in PsiTreeUtil.collectElementsOfType(file, JSCallExpression::class.java)) {
+            val obj = styleSheetObjectOf(call) ?: continue
+            if (bindingNameOf(obj) != null) continue // a named const, not the default export
+            if (isDefaultExported(call)) return obj
+        }
+        return null
+    }
+
+    /** True when [call]'s enclosing top-level statement is `export default …`. */
+    private fun isDefaultExported(call: JSCallExpression): Boolean {
+        var el: PsiElement? = call
+        var depth = 0
+        while (el != null && el !is PsiFile && depth < 10) {
+            if (el.parent is PsiFile) return el.text.trimStart().startsWith("export default")
+            el = el.parent
+            depth++
+        }
+        return false
+    }
+
     internal val NAMED_IMPORT = Regex("""import\s*\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]""")
+
+    // `import <local> from '...'` / `import <local>, { … } from '...'` (default import). The
+    // first token is an identifier (not `{`/`*`), so this never matches a named-only import.
+    internal val DEFAULT_IMPORT = Regex("""import\s+([A-Za-z_$][\w$]*)\s*(?:,\s*\{[^}]*\})?\s+from\s*['"]([^'"]+)['"]""")
 
     /** Resolve a JS/TS import [path] (extensionless allowed) to a VirtualFile. */
     fun resolveJsImport(fromDir: VirtualFile, project: Project, path: String): VirtualFile? {
@@ -108,8 +134,22 @@ internal object RnStyles {
     fun resolveStyleSheetForBinding(jsFile: PsiFile, binding: String): JSObjectLiteralExpression? {
         val file = jsFile.originalFile
         fileStyleSheets(file)[binding]?.let { return it }
-        val (targetFile, exportName) = resolveNamedImport(file, binding) ?: return null
-        return fileStyleSheets(targetFile)[exportName]
+        resolveNamedImport(file, binding)?.let { (t, name) -> fileStyleSheets(t)[name]?.let { return it } }
+        // default import: `import <binding> from './x'` -> x's `export default StyleSheet.create`
+        resolveDefaultImport(file, binding)?.let { target -> defaultExportStyleSheet(target)?.let { return it } }
+        return null
+    }
+
+    /** For [binding] in [jsFile], find `import <binding> from 'path'` -> the imported file. */
+    private fun resolveDefaultImport(jsFile: PsiFile, binding: String): PsiFile? {
+        val dir = jsFile.virtualFile?.parent ?: return null
+        val project = jsFile.project
+        for (m in DEFAULT_IMPORT.findAll(jsFile.text)) {
+            if (m.groupValues[1] != binding || binding == "type") continue
+            val vf = resolveJsImport(dir, project, m.groupValues[2]) ?: continue
+            return PsiManager.getInstance(project).findFile(vf)
+        }
+        return null
     }
 
     /** For [binding] in [jsFile], find `import { ... } from 'path'` -> (target file, original export name). */
@@ -157,6 +197,14 @@ internal object RnStyles {
                 exported[orig]?.let { out.putIfAbsent(local, it) }
             }
         }
+        // default imports: `import <local> from './x'` -> x's default-export StyleSheet
+        for (m in DEFAULT_IMPORT.findAll(real.text)) {
+            val local = m.groupValues[1]
+            if (local == "type") continue
+            val vf = resolveJsImport(dir, real.project, m.groupValues[2]) ?: continue
+            val target = psiManager.findFile(vf) ?: continue
+            defaultExportStyleSheet(target)?.let { out.putIfAbsent(local, it) }
+        }
         return out
     }
 
@@ -200,21 +248,57 @@ internal object RnStyles {
         return locals
     }
 
+    /** Files that `import <local> from '<stylesFile>'` (default import), mapped to local name(s). */
+    fun importersForDefaultExport(stylesFile: PsiFile): Map<PsiFile, Set<String>> {
+        val project = stylesFile.project
+        val target = stylesFile.virtualFile ?: return emptyMap()
+        val psiManager = PsiManager.getInstance(project)
+        val scope = GlobalSearchScope.projectScope(project)
+        val out = LinkedHashMap<PsiFile, MutableSet<String>>()
+        for (ext in CssModules.JS_EXTS) {
+            for (vf in FilenameIndex.getAllFilesByExt(project, ext, scope)) {
+                if (vf == target) continue
+                val text = runCatching { VfsUtilCore.loadText(vf) }.getOrNull() ?: continue
+                if (!text.contains("import")) continue
+                val dir = vf.parent ?: continue
+                val f = psiManager.findFile(vf) ?: continue
+                val locals = linkedSetOf<String>()
+                for (m in DEFAULT_IMPORT.findAll(text)) {
+                    val local = m.groupValues[1]
+                    if (local == "type") continue
+                    if (resolveJsImport(dir, project, m.groupValues[2]) == target) locals.add(local)
+                }
+                if (locals.isNotEmpty()) out.getOrPut(f) { linkedSetOf() }.addAll(locals)
+            }
+        }
+        return out
+    }
+
     /** Style keys of [obj] referenced (as `<binding>.<key>` or via destructuring) across its scope. */
     fun collectUsedKeys(obj: JSObjectLiteralExpression): Set<String> {
         val definingFile = obj.containingFile?.originalFile ?: return emptySet()
-        // Precondition: callers pass an obj from fileStyleSheets, which only yields objects
-        // with a binding name — so this never silently empties the used-set for a real sheet.
-        val binding = bindingNameOf(obj) ?: return emptySet()
         val keys = styleKeys(obj).toSet()
         if (keys.isEmpty()) return emptySet()
 
+        // Build the scope (files + local binding names) where this sheet's keys may be referenced.
         val scope = LinkedHashMap<PsiFile, MutableSet<String>>()
-        scope.getOrPut(definingFile) { linkedSetOf() }.add(binding)
-        if (isExported(obj)) {
-            for ((f, locals) in importersForExport(definingFile, binding)) {
-                scope.getOrPut(f) { linkedSetOf() }.addAll(locals)
+        val binding = bindingNameOf(obj)
+        when {
+            binding != null -> {
+                scope.getOrPut(definingFile) { linkedSetOf() }.add(binding)
+                if (isExported(obj)) {
+                    for ((f, locals) in importersForExport(definingFile, binding)) {
+                        scope.getOrPut(f) { linkedSetOf() }.addAll(locals)
+                    }
+                }
             }
+            // `export default StyleSheet.create(...)` — no binding name; consumed via default import.
+            defaultExportStyleSheet(definingFile) === obj -> {
+                for ((f, locals) in importersForDefaultExport(definingFile)) {
+                    scope.getOrPut(f) { linkedSetOf() }.addAll(locals)
+                }
+            }
+            else -> return emptySet() // unnamed, non-default-export object — not a tracked sheet
         }
 
         val used = HashSet<String>()
