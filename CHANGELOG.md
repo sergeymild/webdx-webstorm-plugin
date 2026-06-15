@@ -35,6 +35,14 @@ tsgo engine where the TS language service doesn't load plugins.
   (`BamSelectors`, widened `CssModules.collectClassNames`,
   `CssModuleClassNavigation`, `CssModuleUnusedClassInspection`,
   `CssModuleFindUsagesHandlerFactory`.)
+- A bam class declared at **multiple** selector sites (e.g. `#{$sidebar}__x` inside a
+  modifier block AND a top-level `&__x`) is greyed at **every** site when unused, matching
+  how a literal `.foo` declared twice is flagged at both occurrences.
+- **Bracket member access** `styles['class--mod']` is now read by the usage / unknown /
+  Find-Usages scanners (previously only dot access `styles.class`). This matters for
+  `--`-modifier names like `sidebar--expanded`, which are not valid JS identifiers and can
+  only be referenced via brackets — they are now correctly counted as used, validated as
+  unknown, and found by Find Usages. (`CssModules.bracketMemberAccess`.)
 
 ## 1.7.0 — 2026-06-13
 - **New: React Native `StyleSheet.create` support** (`com.webdx.rnstyles`), source-resolved

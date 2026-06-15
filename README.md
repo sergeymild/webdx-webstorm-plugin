@@ -591,9 +591,9 @@ triggers (probed — no highlights, no quick-fixes). Verify it manually in the I
 - `styles.<class>` go-to only intercepts the `GotoDeclaration` action; a non-standard
   keybinding/gesture bound to a *different* navigation action isn't covered.
 - Quick-fix on the "Unknown CSS class" inspection (create the class in the module).
-- Handle bracket access `styles['kebab-case']` for the inspections.
 - Suppress the "unused" warning when a module is accessed dynamically
-  (`styles[variable]`) in an importer.
+  (`styles[variable]`) in an importer. (Static bracket access `styles['kebab-case']`
+  is already handled by `CssModules.bracketMemberAccess`.)
 - Rename for `styles.foo` ↔ the CSS class.
 - Collapse the per-dialect registrations of the unused/unknown inspections to a single
   `language="CSS"` each (same dialect-duplication risk as gotcha #9).

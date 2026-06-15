@@ -110,6 +110,7 @@ class CssModuleFindUsagesHandlerFactory : FindUsagesHandlerFactory() {
 
             var count = 0
             for ((file, bindings) in jsImporters) {
+                // dot access: `<binding>.className`
                 val leaves = PsiTreeUtil.collectElements(file) { el ->
                     el.firstChild == null && el.textLength == className.length && el.text == className
                 }
@@ -118,6 +119,14 @@ class CssModuleFindUsagesHandlerFactory : FindUsagesHandlerFactory() {
                     if (dot.text != ".") continue // must be a `.className` property access
                     val qualifier = prevMeaningfulLeaf(dot) ?: continue
                     if (qualifier.text !in bindings) continue // qualified by a module import binding
+                    if (!processor.process(UsageInfo(leaf))) return@compute false
+                    count++
+                }
+                // bracket access: `<binding>['className']` (e.g. `--`-modifier names)
+                val bracketLeaves = PsiTreeUtil.collectElements(file) { it.firstChild == null }
+                for (leaf in bracketLeaves) {
+                    val (qualifier, member) = CssModules.bracketMemberAccess(leaf) ?: continue
+                    if (member != className || qualifier !in bindings) continue
                     if (!processor.process(UsageInfo(leaf))) return@compute false
                     count++
                 }

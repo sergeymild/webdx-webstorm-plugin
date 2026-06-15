@@ -22,6 +22,15 @@ class CssModuleUnknownClassInspection : LocalInspectionTool() {
         return object : PsiElementVisitor() {
             override fun visitElement(element: PsiElement) {
                 if (element.firstChild != null) return // leaves only
+
+                // bracket access: `<binding>['name']` (e.g. a `--`-modifier class)
+                CssModules.bracketMemberAccess(element)?.let { (qualifier, member) ->
+                    val classes = bindings[qualifier] ?: return // not a CSS-module binding
+                    if (member !in classes) flag(element, member)
+                    return
+                }
+
+                // dot access: `<binding>.<name>`
                 val name = element.text
                 if (name.isEmpty() || !name.first().isJavaIdentifierStart()) return
 
@@ -30,13 +39,15 @@ class CssModuleUnknownClassInspection : LocalInspectionTool() {
                 val qualifier = CssModules.prevMeaningfulLeaf(dot) ?: return
                 val classes = bindings[qualifier.text] ?: return // not a CSS-module binding
 
-                if (name !in classes) {
-                    holder.registerProblem(
-                        element,
-                        "Unknown CSS module class '$name'",
-                        ProblemHighlightType.LIKE_UNKNOWN_SYMBOL,
-                    )
-                }
+                if (name !in classes) flag(element, name)
+            }
+
+            private fun flag(element: PsiElement, name: String) {
+                holder.registerProblem(
+                    element,
+                    "Unknown CSS module class '$name'",
+                    ProblemHighlightType.LIKE_UNKNOWN_SYMBOL,
+                )
             }
         }
     }

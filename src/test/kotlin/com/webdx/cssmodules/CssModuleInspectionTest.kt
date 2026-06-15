@@ -270,4 +270,55 @@ class CssModuleInspectionTest : BasePlatformTestCase() {
             descriptions.any { it.contains("Unknown CSS module class 'doesNotExist'") },
         )
     }
+
+    // --- bracket access: styles['class--mod'] -----------------------------
+
+    fun testBracketAccessedBamClassIsNotUnused() {
+        // `sidebar--expanded` (a `--` modifier) can only be referenced via bracket access
+        // `styles['sidebar--expanded']`; it must count as used and NOT be greyed.
+        myFixture.addFileToProject(
+            "src/Use.tsx",
+            "import styles from './Bam.module.scss';\nconst x = styles['sidebar--expanded'];",
+        )
+        val scss = myFixture.addFileToProject(
+            "src/Bam.module.scss",
+            "\$sidebar: '.sidebar';\n#{\$sidebar} {\n  &--expanded { color: red; }\n  &--dead { color: blue; }\n}",
+        )
+        myFixture.configureFromExistingVirtualFile(scss.virtualFile)
+        myFixture.enableInspections(CssModuleUnusedClassInspection())
+
+        val descriptions = myFixture.doHighlighting().mapNotNull { it.description }
+        assertFalse(
+            "bracket-used 'sidebar--expanded' must NOT be unused, got: $descriptions",
+            descriptions.any { it.contains("'sidebar--expanded'") },
+        )
+        assertTrue(
+            "'sidebar--dead' should be unused, got: $descriptions",
+            descriptions.any { it.contains("'sidebar--dead'") && it.contains("not used") },
+        )
+    }
+
+    fun testBracketUnknownClassIsFlagged() {
+        myFixture.addFileToProject(
+            "Bam.module.scss",
+            "\$sidebar: '.sidebar';\n#{\$sidebar} {\n  &--expanded { color: red; }\n}",
+        )
+        myFixture.configureByText(
+            "Use.tsx",
+            "import styles from './Bam.module.scss';\n" +
+                "const a = styles['sidebar--expanded'];\n" +
+                "const b = styles['nope--missing'];",
+        )
+        myFixture.enableInspections(CssModuleUnknownClassInspection())
+
+        val descriptions = myFixture.doHighlighting().mapNotNull { it.description }
+        assertTrue(
+            "typo bracket class 'nope--missing' should be flagged, got: $descriptions",
+            descriptions.any { it.contains("Unknown CSS module class 'nope--missing'") },
+        )
+        assertFalse(
+            "valid bracket class 'sidebar--expanded' must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("'sidebar--expanded'") },
+        )
+    }
 }
