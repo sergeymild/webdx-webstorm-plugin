@@ -36,9 +36,12 @@ class ScssSymbolFindUsagesHandlerFactory : FindUsagesHandlerFactory() {
                 val decl = declAt(target) ?: return@compute true
                 val vf = decl.file.virtualFile ?: return@compute true
                 val key = DeclKey(vf, decl.name, decl.kind)
-                val refs = ScssSymbols.usesByDeclaration(target.project)[key] ?: emptyList()
-                for (ref in refs) {
-                    if (!processor.process(UsageInfo(ref.element))) return@compute false
+                val locs = ScssSymbols.usesByDeclaration(target.project)[key] ?: emptyList()
+                val psiManager = com.intellij.psi.PsiManager.getInstance(target.project)
+                for (loc in locs) {
+                    // materialize the PsiElement only for this declaration's actual usages
+                    val element = psiManager.findFile(loc.file)?.findElementAt(loc.offset) ?: continue
+                    if (!processor.process(UsageInfo(element))) return@compute false
                 }
                 true
             }

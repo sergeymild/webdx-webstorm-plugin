@@ -16,6 +16,21 @@ class ScssSymbolFindUsagesTest : BasePlatformTestCase() {
         assertEquals("usages: ${usages.map { it.element?.containingFile?.name }}", 3, usages.size)
     }
 
+    fun testFindsUsageThroughAtImportAlias() {
+        // Reproduces the real report: vars imported via the `@/` tsconfig alias and used
+        // with a bare name in a deeply-nested file. Find Usages on the declaration must list it.
+        myFixture.addFileToProject("tsconfig.json", "{\n  \"compilerOptions\": {\n    \"paths\": { \"@/*\": [\"./*\"] }\n  }\n}")
+        val vars = myFixture.addFileToProject("styles/vars.scss", "\$zNavHeader: 1000;")
+        myFixture.addFileToProject(
+            "components/DrawerNavigation/components/BottomBar/BottomBar.module.scss",
+            "@import '@/styles/vars.scss';\n.bar { z-index: \$zNavHeader; }",
+        )
+        val offset = vars.text.indexOf("\$zNavHeader") + 1
+        val usages = myFixture.findUsages(vars.findElementAt(offset)!!)
+        assertEquals("usages: ${usages.map { it.element?.containingFile?.name }}", 1, usages.size)
+        assertEquals("BottomBar.module.scss", usages.first().element?.containingFile?.name)
+    }
+
     fun testDoesNotMatchSameNamedSymbolResolvingElsewhere() {
         val vars = myFixture.addFileToProject("vars.scss", "\$x: 1;")
         // other.scss declares its OWN $x and uses it locally — must NOT count for vars.scss's $x
