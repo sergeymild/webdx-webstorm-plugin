@@ -31,6 +31,8 @@
             implementation="com.webdx.rnstyles.RnStyleFindUsagesHandlerFactory"/>
         <gotoDeclarationHandler
             implementation="com.webdx.cssmodules.CssModuleGotoDeclarationHandler"/>
+        <gotoDeclarationHandler
+            implementation="com.webdx.scsssymbols.ScssSymbolGotoDeclarationHandler"/>
         <intentionAction>
             <className>com.webdx.cssmodules.CssModuleImportSymbolIntention</className>
             <category>CSS</category>
