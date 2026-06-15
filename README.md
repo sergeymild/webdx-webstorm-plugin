@@ -84,6 +84,17 @@ they work regardless of how (or whether) the TS service types the import.
    classes are still flagged.
    → `CssModuleUnusedClassInspection`
 
+6a. **"bam" interpolated / `&`-nested BEM classes.**
+   Classes produced by a string `$var` used as a selector (`$sidebar: '.sidebar';
+   #{$sidebar} { &__search {} }` → `sidebar`, `sidebar__search`) have no `CssClass`
+   node, so they were invisible. They are now resolved from source PSI and treated
+   like real classes by completion, the unknown/unused inspections, go-to, and Find
+   Usages. Plain literal-parent BEM (`.foo { &__bar {} }`) is covered too. The block
+   variable may be local or imported from a directly `@import`/`@use`-d file (bare
+   `#{$var}`, default-namespaced `#{vars.$var}`, aliased `#{v.$var}`). Out of scope:
+   transitive/`@forward` reach, `@each`/`@for`, Sass maps, non-string values.
+   → `BamSelectors`, `CssModules.collectClassNames`
+
 ### CSS module `@import` chains (Sass overrides & navigation)
 
 Sass inlines an `@import`-ed `.module.scss` into the importing module's local scope,
@@ -254,6 +265,7 @@ src/main/kotlin/com/webdx/cssmodules/
   CssModuleStylesCompletion.kt        // feature 4
   CssModuleUnknownClassInspection.kt  // feature 5
   CssModuleUnusedClassInspection.kt   // feature 6
+  BamSelectors.kt                     // feature 6a: interpolated/&-nested BEM resolver
   CssModuleOverrideClassInspection.kt // overrides-imported-class warning
   CssModuleClassNavigation.kt         // shared styles.<class> -> effective decl resolver
   CssModuleGotoDeclarationAction.kt   // overrides GotoDeclaration for styles.<class>
