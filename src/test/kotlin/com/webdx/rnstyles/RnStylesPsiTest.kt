@@ -150,4 +150,28 @@ class RnStylesPsiTest : BasePlatformTestCase() {
         val obj = RnStyles.fileStyleSheets(stylesPsi).getValue("styles")
         assertEquals(setOf("used"), RnStyles.collectUsedKeys(obj))
     }
+
+    fun testCollectUsedKeysCountsStaticBracketAccess() {
+        val file = myFixture.addFileToProject(
+            "S1.tsx",
+            "import { StyleSheet } from 'react-native'\n" +
+                "const styles = StyleSheet.create({ a: { flex: 1 }, b: { flex: 1 }, c: { flex: 1 } })\n" +
+                "const x = styles['a']\nconst y = styles.b",
+        )
+        val obj = RnStyles.fileStyleSheets(file).getValue("styles")
+        // static bracket `styles['a']` counts as a use, like `styles.b`; `c` is unused.
+        assertEquals(setOf("a", "b"), RnStyles.collectUsedKeys(obj))
+    }
+
+    fun testDynamicComputedAccessSuppressesUnused() {
+        val file = myFixture.addFileToProject(
+            "S2.tsx",
+            "import { StyleSheet } from 'react-native'\n" +
+                "const styles = StyleSheet.create({ a: { flex: 1 }, b: { flex: 1 } })\n" +
+                "const n = 1\nconst x = styles[`a${'$'}{n}`]",
+        )
+        val obj = RnStyles.fileStyleSheets(file).getValue("styles")
+        // computed key — can't tell which keys are used, so NONE are flagged unused (all "used").
+        assertEquals(setOf("a", "b"), RnStyles.collectUsedKeys(obj))
+    }
 }

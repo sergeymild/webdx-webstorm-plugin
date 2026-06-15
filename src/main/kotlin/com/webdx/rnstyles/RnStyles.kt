@@ -231,6 +231,23 @@ internal object RnStyles {
                 if (m.groupValues[2] !in bindings) continue
                 for ((_, key) in parseDestructuredEntries(m.groupValues[1])) if (key in keys) used.add(key)
             }
+            // Bracket access `<binding>[...]`: a static string literal counts as a use of that
+            // key; a computed key (`styles[`a${x}`]` / `styles[v]`) is dynamic — we can't tell
+            // which keys it hits, so treat ALL keys as used (never flag them unused).
+            PsiTreeUtil.collectElements(file) { it.firstChild == null && it.text == "[" }.forEach { br ->
+                val q = CssModules.prevMeaningfulLeaf(br) ?: return@forEach
+                if (q.text !in bindings) return@forEach
+                val dotBeforeQ = CssModules.prevMeaningfulLeaf(q)
+                if (dotBeforeQ != null && dotBeforeQ.text == ".") return@forEach // chained: x.styles[...]
+                val inside = CssModules.nextMeaningfulLeaf(br) ?: return@forEach
+                val t = inside.text
+                if (t.length >= 2 && (t.first() == '\'' || t.first() == '"') && t.last() == t.first()) {
+                    val key = t.substring(1, t.length - 1)
+                    if (key in keys) used.add(key)
+                } else {
+                    return keys // computed/dynamic access — all keys are considered used
+                }
+            }
         }
         return used
     }
