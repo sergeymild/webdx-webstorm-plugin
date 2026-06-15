@@ -30,20 +30,27 @@ class ScssSymbolGotoDeclarationTest : BasePlatformTestCase() {
         assertNull(targetFileAtCaret())
     }
 
-    fun testCmdClickOnDeclarationGoesToUsages() {
-        // Cmd+Click on a declaration should jump to its usages (one → direct, many → popup).
-        // Caret sits INSIDE the variable name token (as a real click would land).
+    // Cmd+Click on a DECLARATION → "Show Usages" is decided by `isDeclarationAt` (the action
+    // override triggers the native Show Usages popup, which isn't fixture-testable). The
+    // handler itself must NOT return usage targets for a declaration (that rendered as a
+    // contextless "Choose Declaration" list).
+
+    fun testHandlerReturnsNoTargetsOnDeclaration() {
         myFixture.addFileToProject("a.scss", "@import './vars.scss';\n.a { z-index: \$zNavHeader; }")
-        myFixture.addFileToProject("b.scss", "@import './vars.scss';\n.b { z-index: \$zNavHeader; }")
         myFixture.configureByText("vars.scss", "\$zNav<caret>Header: 1000;")
-        val targets = targetsAtCaret()
-        assertNotNull("expected usage targets from the declaration", targets)
-        assertEquals(2, targets!!.size)
-        assertEquals(setOf("a.scss", "b.scss"), targets.mapNotNull { it.containingFile?.name }.toSet())
+        assertNull("handler must not turn a declaration into go-to targets", targetsAtCaret())
     }
 
-    fun testNoUsageTargetsForUnusedDeclaration() {
-        myFixture.configureByText("vars.scss", "\$dea<caret>d: 1;")
-        assertNull(targetsAtCaret())
+    fun testIsDeclarationAtDistinguishesDeclFromUse() {
+        myFixture.addFileToProject("vars.scss", "\$brand: red;")
+        // caret on a USE → not a declaration
+        myFixture.configureByText("use.scss", "@import './vars.scss';\n.a { color: \$bra<caret>nd; }")
+        val useEl = myFixture.file.findElementAt(myFixture.caretOffset)!!
+        assertFalse(com.webdx.scsssymbols.ScssSymbols.isDeclarationAt(useEl))
+
+        // caret on the DECLARATION → is a declaration
+        myFixture.configureByText("vars.scss", "\$bra<caret>nd: red;")
+        val declEl = myFixture.file.findElementAt(myFixture.caretOffset)!!
+        assertTrue(com.webdx.scsssymbols.ScssSymbols.isDeclarationAt(declEl))
     }
 }

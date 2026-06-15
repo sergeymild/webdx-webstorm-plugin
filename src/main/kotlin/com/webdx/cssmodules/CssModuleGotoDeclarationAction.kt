@@ -46,6 +46,17 @@ class CssModuleGotoDeclarationAction : GotoDeclarationAction() {
                         PsiNavigateUtil.navigate(rnTarget)
                         return
                     }
+                    // SCSS symbol DECLARATION (`$var:` / `@function`/`@mixin`/`%ph`): Cmd+Click
+                    // shows its usages via the native "Show Usages" popup (code preview + grouping),
+                    // instead of the contextless go-to "Choose Declaration" list.
+                    if (com.webdx.scsssymbols.ScssSymbols.isDeclarationAt(element)) {
+                        val showUsages = com.intellij.openapi.actionSystem.ActionManager.getInstance()
+                            .getAction("ShowUsages")
+                        if (showUsages != null) {
+                            showUsages.actionPerformed(e)
+                            return
+                        }
+                    }
                 }
             }
         } catch (t: Throwable) {

@@ -99,4 +99,18 @@ internal object ScssSymbols {
         val offset = element.textOffset
         return referencesIn(file).firstOrNull { it.element.textRange.contains(offset) }
     }
+
+    /**
+     * True when [element] sits on a symbol DECLARATION name token in a `.scss`/`.sass` file
+     * (and is not itself a use). Cheap — scans only the current file — so it is safe to call
+     * on the EDT to decide whether to show usages on Cmd+Click.
+     */
+    fun isDeclarationAt(element: PsiElement): Boolean {
+        val file = element.containingFile?.originalFile ?: return false
+        val n = file.name.lowercase()
+        if (!n.endsWith(".scss") && !n.endsWith(".sass")) return false
+        if (referenceAt(element) != null) return false // a use, not a declaration
+        val offset = element.textOffset
+        return declarationsIn(file).any { it.element.textRange.contains(offset) }
+    }
 }

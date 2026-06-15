@@ -29,7 +29,8 @@ tsgo engine where the TS language service doesn't load plugins.
   - **Find Usages** on a declaration lists every resolved reference site project-wide.
   - **Go-to-declaration** from a use (`$x` / `ns.$x` / `@include name` / `func(` / `%ph`) lands on
     the declaration in the right file. **Cmd+Click on a declaration** navigates the other way —
-    to its usages (one jumps directly, many open the target chooser).
+    it opens the native **Show Usages** popup (code preview + file grouping) for that symbol,
+    via the GotoDeclaration action override.
   Resolved from source via regex + `findElementAt` (no Sass-plugin PSI dependency); the import
   graph reuses `CssModules.resolveImportPath`. Out of scope (approximated, never a false
   "unused"): `@forward show/hide`/prefix filters, `@use … with`, `sass:*` modules, CSS custom
