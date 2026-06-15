@@ -41,6 +41,29 @@ class RnStyleUnusedKeyInspectionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testUnusedKeyInDefaultExportReported() {
+        myFixture.addFileToProject(
+            "src/Consumer.tsx",
+            "import b from './bstyles'\nconst x = b.used",
+        )
+        val styles = myFixture.addFileToProject(
+            "src/bstyles.ts",
+            "import { StyleSheet } from 'react-native'\nexport default StyleSheet.create({ used: { flex: 1 }, dead: { flex: 1 } })",
+        )
+        myFixture.configureFromExistingVirtualFile(styles.virtualFile)
+        myFixture.enableInspections(RnStyleUnusedKeyInspection())
+
+        val descriptions = myFixture.doHighlighting().mapNotNull { it.description }
+        assertFalse(
+            "'used' is referenced by a default-import consumer and must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("'used'") },
+        )
+        assertTrue(
+            "'dead' is never referenced and SHOULD be flagged, got: $descriptions",
+            descriptions.any { it.contains("'dead'") && it.contains("not used") },
+        )
+    }
+
     fun testNoStyleSheetNoFlags() {
         val tsx = myFixture.addFileToProject(
             "src/Plain.tsx",

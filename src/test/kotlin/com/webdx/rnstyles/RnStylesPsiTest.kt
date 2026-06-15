@@ -150,4 +150,48 @@ class RnStylesPsiTest : BasePlatformTestCase() {
         val obj = RnStyles.fileStyleSheets(stylesPsi).getValue("styles")
         assertEquals(setOf("used"), RnStyles.collectUsedKeys(obj))
     }
+
+    fun testCollectUsedKeysCountsStaticBracketAccess() {
+        val file = myFixture.addFileToProject(
+            "S1.tsx",
+            "import { StyleSheet } from 'react-native'\n" +
+                "const styles = StyleSheet.create({ a: { flex: 1 }, b: { flex: 1 }, c: { flex: 1 } })\n" +
+                "const x = styles['a']\nconst y = styles.b",
+        )
+        val obj = RnStyles.fileStyleSheets(file).getValue("styles")
+        // static bracket `styles['a']` counts as a use, like `styles.b`; `c` is unused.
+        assertEquals(setOf("a", "b"), RnStyles.collectUsedKeys(obj))
+    }
+
+    fun testResolvesDefaultExportStyleSheet() {
+        myFixture.addFileToProject(
+            "bannerStyles.ts",
+            "import { StyleSheet } from 'react-native'\nexport default StyleSheet.create({ banner: { flex: 1 }, title: { flex: 1 } })",
+        )
+        val consumer = myFixture.addFileToProject(
+            "Banner.tsx",
+            "import b from './bannerStyles'\nconst x = b.banner",
+        )
+        // go-to side: resolveStyleSheetForBinding finds the default-exported sheet
+        val obj = RnStyles.resolveStyleSheetForBinding(consumer, "b")
+        assertNotNull("default-export stylesheet should resolve via default import", obj)
+        assertEquals(listOf("banner", "title"), RnStyles.styleKeys(obj!!))
+        assertNotNull(RnStyles.keyProperty(obj, "banner"))
+        // unknown-inspection side: bindingsInFile includes the default import binding
+        val b = RnStyles.bindingsInFile(consumer)["b"]
+        assertNotNull("bindingsInFile should include default import", b)
+        assertEquals(setOf("banner", "title"), RnStyles.styleKeys(b!!).toSet())
+    }
+
+    fun testDynamicComputedAccessSuppressesUnused() {
+        val file = myFixture.addFileToProject(
+            "S2.tsx",
+            "import { StyleSheet } from 'react-native'\n" +
+                "const styles = StyleSheet.create({ a: { flex: 1 }, b: { flex: 1 } })\n" +
+                "const n = 1\nconst x = styles[`a${'$'}{n}`]",
+        )
+        val obj = RnStyles.fileStyleSheets(file).getValue("styles")
+        // computed key — can't tell which keys are used, so NONE are flagged unused (all "used").
+        assertEquals(setOf("a", "b"), RnStyles.collectUsedKeys(obj))
+    }
 }

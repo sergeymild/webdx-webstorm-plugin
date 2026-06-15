@@ -182,7 +182,11 @@ If detection fails, it falls back to convention (`*/translations/en.json`).
 
 A "StyleSheet object" is a `StyleSheet.create({ … })` call; its top-level object-literal
 properties are the style keys. All features resolve from source PSI (no TS service), so they
-behave correctly where the service treats `styles.<key>` as an untyped member.
+behave correctly where the service treats `styles.<key>` as an untyped member. Covers inline
+`const styles = …`, named `export const styles` (consumed via `import { styles }`), and
+`export default StyleSheet.create({ … })` (consumed via `import styles from './styles'`). A
+static `styles['key']` counts as a use; a dynamic `styles[`a${x}`]`/`styles[v]` access is
+treated as using all keys (so the unused inspection never false-flags such a binding).
 
 12. **Go-to on `styles.<key>`** → the single key property in the `StyleSheet.create` object.
     Works for inline (`const styles = …`), imported (`import { styles } from './styles'`),
