@@ -96,6 +96,13 @@
              CSS registration matches each file exactly once. Registering per-dialect
              made .scss match SCSS+SASS+CSS and fire the warning three times. -->
         <localInspection language="CSS"
+            shortName="ScssUnusedSymbol"
+            displayName="Unused SCSS symbol"
+            groupName="CSS"
+            enabledByDefault="true"
+            level="WARNING"
+            implementationClass="com.webdx.scsssymbols.ScssUnusedSymbolInspection"/>
+        <localInspection language="CSS"
             shortName="CssModuleOverrideClass"
             displayName="CSS module class overrides imported class"
             groupName="CSS" enabledByDefault="true" level="WARNING"
