@@ -47,7 +47,8 @@ class CssModuleFindUsagesHandlerFactory : FindUsagesHandlerFactory() {
                     "parents=[${parentChain(element)}]"
             )
         }
-        return isModule && cssClass != null
+        val isBam = BamSelectors.bamClassForElement(element) != null
+        return isModule && (cssClass != null || isBam)
     }
 
     private fun parentChain(element: PsiElement): String {
@@ -87,8 +88,10 @@ class CssModuleFindUsagesHandlerFactory : FindUsagesHandlerFactory() {
         // All PSI access below needs a read action; processElementUsages runs on a
         // pooled thread without one.
         return ReadAction.compute<Boolean, RuntimeException> {
-            val cssClass = resolveCssClass(target) ?: return@compute true
-            val className = cssClass.name?.removePrefix(".")?.takeIf { it.isNotEmpty() } ?: return@compute true
+            val cssClass = resolveCssClass(target)
+            val className = (cssClass?.name?.removePrefix(".")?.takeIf { it.isNotEmpty() }
+                ?: BamSelectors.bamClassForElement(target))
+                ?: return@compute true
             val moduleFile = target.containingFile ?: return@compute true
             val project = moduleFile.project
             val psiManager = com.intellij.psi.PsiManager.getInstance(project)
