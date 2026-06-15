@@ -253,6 +253,18 @@ behave correctly where the service treats `styles.<key>` as an untyped member.
     excluded. The `… from` re-export links themselves remain owned by the dead re-export
     inspection above.
 
+### SCSS symbol usage (`com.webdx.scsssymbols`)
+
+19. **"Unused SCSS symbol" inspection, Find Usages, and go-to** for `$variables`, `@function`s,
+    `@mixin`s, and `%placeholder`s, resolved through the project's `@use`/`@import`/`@forward`
+    graph (full transitivity, namespace-aware — `ns.$x`, `@include ns.m`, `#{$x}` all count). A
+    declaration referenced nowhere is greyed; Find Usages on it lists every resolved reference;
+    Cmd+Click a use jumps to its declaration. Resolution is precise across name collisions (a
+    same-named symbol used elsewhere does not keep a dead one alive). Source-resolved (regex +
+    `findElementAt`, no Sass-plugin dependency); graph reuses `CssModules.resolveImportPath`.
+    → `ScssImportGraph`, `ScssSymbols`, `ScssUnusedSymbolInspection`,
+    `ScssSymbolFindUsagesHandlerFactory`, `ScssSymbolGotoDeclarationHandler`
+
 ---
 
 ## Architecture / where each thing lives
@@ -323,6 +335,7 @@ The heart of the resolution logic, all on generic PSI (no TS service):
 | Overrides-imported-class inspection | `localInspection` (`language="CSS"` once — covers dialects) | `com.intellij` |
 | `styles.<class>` go-to | `<action id="GotoDeclaration" overrides="true">` (+ unused `gotoDeclarationHandler` / `lang.directNavigationProvider`) | `com.intellij` |
 | `@import` a SCSS symbol | `intentionAction` | `com.intellij` |
+| SCSS unused symbol / Find Usages / go-to | `localInspection` (CSS) + `findUsagesHandlerFactory` + `gotoDeclarationHandler` | `com.intellij` |
 | Auto-import candidate | `importCandidatesFactory` | `JavaScript` |
 | Import popup filter | `importCandidatesFilterFactory` | `JavaScript` |
 

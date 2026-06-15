@@ -29,8 +29,13 @@
         <findUsagesHandlerFactory
             order="first"
             implementation="com.webdx.rnstyles.RnStyleFindUsagesHandlerFactory"/>
+        <findUsagesHandlerFactory
+            order="first"
+            implementation="com.webdx.scsssymbols.ScssSymbolFindUsagesHandlerFactory"/>
         <gotoDeclarationHandler
             implementation="com.webdx.cssmodules.CssModuleGotoDeclarationHandler"/>
+        <gotoDeclarationHandler
+            implementation="com.webdx.scsssymbols.ScssSymbolGotoDeclarationHandler"/>
         <intentionAction>
             <className>com.webdx.cssmodules.CssModuleImportSymbolIntention</className>
             <category>CSS</category>
@@ -93,6 +98,13 @@
         <!-- Register once on CSS only: SCSS/SASS/LESS are dialects of CSS, so a single
              CSS registration matches each file exactly once. Registering per-dialect
              made .scss match SCSS+SASS+CSS and fire the warning three times. -->
+        <localInspection language="CSS"
+            shortName="ScssUnusedSymbol"
+            displayName="Unused SCSS symbol"
+            groupName="CSS"
+            enabledByDefault="true"
+            level="WARNING"
+            implementationClass="com.webdx.scsssymbols.ScssUnusedSymbolInspection"/>
         <localInspection language="CSS"
             shortName="CssModuleOverrideClass"
             displayName="CSS module class overrides imported class"
