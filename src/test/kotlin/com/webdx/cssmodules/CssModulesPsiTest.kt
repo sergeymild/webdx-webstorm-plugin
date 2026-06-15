@@ -143,4 +143,16 @@ class CssModulesPsiTest : BasePlatformTestCase() {
         // `other.a` must NOT count as a usage of class `a`; only `styles.b` does.
         assertEquals(setOf("b"), CssModules.collectUsedClassNames(scss))
     }
+
+    // --- collectClassNames + BamSelectors ------------------------------------
+
+    fun testCollectClassNamesIncludesBamClasses() {
+        val scss = myFixture.addFileToProject(
+            "src/Bam.module.scss",
+            "\$sidebar: '.sidebar';\n#{\$sidebar} {\n  &__search { display: none; }\n}",
+        )
+        val names = CssModules.collectClassNames(scss)
+        assertTrue("expected bam block class, got $names", names.contains("sidebar"))
+        assertTrue("expected bam element class, got $names", names.contains("sidebar__search"))
+    }
 }

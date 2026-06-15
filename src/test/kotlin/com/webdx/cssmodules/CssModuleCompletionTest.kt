@@ -72,6 +72,23 @@ class CssModuleCompletionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testCompletesBamClassNames() {
+        myFixture.addFileToProject(
+            "Bam.module.scss",
+            "\$sidebar: '.sidebar';\n#{\$sidebar} {\n  &__search { display: none; }\n}",
+        )
+        myFixture.configureByText(
+            "Use.tsx",
+            "import styles from './Bam.module.scss';\nconst x = styles.<caret>;",
+        )
+        myFixture.completeBasic()
+        val suggestions = myFixture.lookupElementStrings ?: emptyList()
+        assertTrue(
+            "expected bam classes, got $suggestions",
+            suggestions.containsAll(listOf("sidebar", "sidebar__search")),
+        )
+    }
+
     fun testTypeTextShowsTheDeclaringFilePerClass() {
         myFixture.addFileToProject("common.module.scss", ".nextButton { } .note { }")
         myFixture.addFileToProject(

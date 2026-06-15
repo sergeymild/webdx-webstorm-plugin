@@ -73,8 +73,9 @@ internal object CssModules {
 
     /** All class names declared in a CSS-module file (deduped, dot stripped). */
     fun collectClassNames(moduleFile: PsiFile): List<String> =
-        PsiTreeUtil.collectElementsOfType(moduleFile, CssClass::class.java)
-            .mapNotNull { it.name?.removePrefix(".")?.takeIf(String::isNotEmpty) }
+        (PsiTreeUtil.collectElementsOfType(moduleFile, CssClass::class.java)
+            .mapNotNull { it.name?.removePrefix(".")?.takeIf(String::isNotEmpty) } +
+            BamSelectors.bamClassDeclarations(moduleFile).keys)
             .distinct()
 
     /** The CSS-module files directly imported by [scssFile] via @import/@use/@forward. */

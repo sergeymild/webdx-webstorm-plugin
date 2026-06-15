@@ -170,6 +170,24 @@ class CssModuleInspectionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testBamClassNotFlaggedAsUnknown() {
+        myFixture.addFileToProject(
+            "src/Bam.module.scss",
+            "\$sidebar: '.sidebar';\n#{\$sidebar} {\n  &__search { display: none; }\n}",
+        )
+        val tsx = myFixture.addFileToProject(
+            "src/Use.tsx",
+            "import styles from './Bam.module.scss';\nconst x = styles.sidebar__search;",
+        )
+        myFixture.configureFromExistingVirtualFile(tsx.virtualFile)
+        myFixture.enableInspections(CssModuleUnknownClassInspection())
+        val descriptions = myFixture.doHighlighting().mapNotNull { it.description }
+        assertFalse(
+            "bam class must not be flagged unknown, got: $descriptions",
+            descriptions.any { it.contains("Unknown CSS module class") },
+        )
+    }
+
     fun testImportedClassIsNotFlaggedAsUnknown() {
         myFixture.addFileToProject("src/common.module.scss", ".nextButton { color: red; }")
         myFixture.addFileToProject(
