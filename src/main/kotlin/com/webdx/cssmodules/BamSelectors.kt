@@ -65,10 +65,11 @@ internal object BamSelectors {
         val vars = collectVariables(file)
         val out = LinkedHashMap<String, PsiElement>()
         for (ruleset in PsiTreeUtil.collectElementsOfType(file, CssRuleset::class.java)) {
+            // only the first selector of a comma group is resolved (BEM rarely comma-groups)
             val selText = ruleset.selectors.firstOrNull()?.text ?: continue
             if (selText.trimStart().startsWith("@")) continue // @include/@media container declares no class
-            // Only handle selectors that involve `&` nesting or `#{...}` interpolation.
-            // Plain `.foo { ... }` selectors are already CssClass PSI nodes — skip them.
+            // Skip plain class selectors — only the `&` / `#{}` forms escape regular
+            // CssClass PSI and need this resolver.
             if (!selText.contains('&') && !selText.contains("#{")) continue
             val resolved = resolveRuleset(ruleset, vars, 0) ?: continue
             val cls = subjectClass(resolved) ?: continue
@@ -175,6 +176,12 @@ internal object BamSelectors {
         // Only a declaration when the class is the subject (nothing — pseudo/combinator —
         // follows it): `.a:after` and `.a .b__c`-context tokens are not subjects.
         if (m.range.last != s.length - 1) return null
+        // Reject a class in a descendant/combinator context (e.g. `.a .child`, `.a > .child`) —
+        // only a class fused to the parent (BEM `__`/`--`) or starting the compound is a subject.
+        if (m.range.first > 0) {
+            val before = s[m.range.first - 1]
+            if (before.isWhitespace() || before == '>' || before == '~' || before == '+') return null
+        }
         return m.groupValues[1]
     }
 

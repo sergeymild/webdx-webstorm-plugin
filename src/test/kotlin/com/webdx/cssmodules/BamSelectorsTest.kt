@@ -137,4 +137,15 @@ class BamSelectorsTest : BasePlatformTestCase() {
         val element = scss.findElementAt(offset)!!
         assertNull(BamSelectors.bamClassForElement(element))
     }
+
+    fun testDescendantSelectorIsIgnored() {
+        val scss = myFixture.addFileToProject(
+            "src/Desc.module.scss",
+            "${'$'}sidebar: '.sidebar';\n#{${'$'}sidebar} {\n  & .child { color: red; }\n}",
+        )
+        assertFalse("descendant `.child` must not be a bam class",
+            BamSelectors.bamClassDeclarations(scss).containsKey("child"))
+        // the block itself still resolves
+        assertTrue(BamSelectors.bamClassDeclarations(scss).containsKey("sidebar"))
+    }
 }
