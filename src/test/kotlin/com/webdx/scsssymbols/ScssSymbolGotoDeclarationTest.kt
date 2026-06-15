@@ -6,11 +6,12 @@ class ScssSymbolGotoDeclarationTest : BasePlatformTestCase() {
 
     private val handler = ScssSymbolGotoDeclarationHandler()
 
-    private fun targetFileAtCaret(): String? {
+    private fun targetsAtCaret(): Array<com.intellij.psi.PsiElement>? {
         val element = myFixture.file.findElementAt(myFixture.caretOffset)
         return handler.getGotoDeclarationTargets(element, myFixture.caretOffset, myFixture.editor)
-            ?.firstOrNull()?.containingFile?.name
     }
+
+    private fun targetFileAtCaret(): String? = targetsAtCaret()?.firstOrNull()?.containingFile?.name
 
     fun testGoesToVariableDeclarationAcrossFiles() {
         myFixture.addFileToProject("vars.scss", "\$brand: red;")
@@ -27,5 +28,22 @@ class ScssSymbolGotoDeclarationTest : BasePlatformTestCase() {
     fun testNoTargetForUnknownSymbol() {
         myFixture.configureByText("f.scss", ".a { color: \$noth<caret>ing; }")
         assertNull(targetFileAtCaret())
+    }
+
+    fun testCmdClickOnDeclarationGoesToUsages() {
+        // Cmd+Click on a declaration should jump to its usages (one → direct, many → popup).
+        // Caret sits INSIDE the variable name token (as a real click would land).
+        myFixture.addFileToProject("a.scss", "@import './vars.scss';\n.a { z-index: \$zNavHeader; }")
+        myFixture.addFileToProject("b.scss", "@import './vars.scss';\n.b { z-index: \$zNavHeader; }")
+        myFixture.configureByText("vars.scss", "\$zNav<caret>Header: 1000;")
+        val targets = targetsAtCaret()
+        assertNotNull("expected usage targets from the declaration", targets)
+        assertEquals(2, targets!!.size)
+        assertEquals(setOf("a.scss", "b.scss"), targets.mapNotNull { it.containingFile?.name }.toSet())
+    }
+
+    fun testNoUsageTargetsForUnusedDeclaration() {
+        myFixture.configureByText("vars.scss", "\$dea<caret>d: 1;")
+        assertNull(targetsAtCaret())
     }
 }
