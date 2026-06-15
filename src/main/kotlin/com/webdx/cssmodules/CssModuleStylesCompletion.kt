@@ -61,12 +61,42 @@ class CssModuleStylesCompletion : CompletionContributor() {
         for ((name, sourceFile) in origins) {
             // Show the file that actually declares the class, so an `@import`-inlined
             // class reads as its real source (e.g. common.module.scss), not the entry module.
-            val element = LookupElementBuilder.create(name).withTypeText(sourceFile.name, true)
+            var element = LookupElementBuilder.create(name).withTypeText(sourceFile.name, true)
+            // A BEM-modifier class like `sidebar--expanded` is not a valid JS identifier, so
+            // `styles.sidebar--expanded` is a syntax error. Insert such names as bracket access
+            // `styles['sidebar--expanded']` instead. Plain identifiers keep dot access.
+            if (!isJsIdentifier(name)) {
+                element = element.withInsertHandler { ctx, _ -> rewriteDotToBracket(ctx, name) }
+            }
             result.addElement(PrioritizedLookupElement.withPriority(element, 100.0))
         }
         // Run every other contributor (incl. the LSP one) through our consumer and
         // drop their results, so only the real CSS-module classes remain.
         result.runRemainingContributors(parameters) { /* intentionally dropped */ }
+    }
+
+    private fun isJsIdentifier(name: String): Boolean =
+        name.isNotEmpty() && name.first().isJavaIdentifierStart() && name.all { it.isJavaIdentifierPart() }
+
+    /**
+     * Rewrite a just-inserted `<binding>.<member>` into `<binding>['<name>']` so a
+     * non-identifier class (e.g. a `--` BEM modifier) becomes valid bracket access.
+     * Walks left from the inserted text over `[\w-]` to the qualifying dot and replaces
+     * `.<member>` with `['<name>']`.
+     */
+    private fun rewriteDotToBracket(ctx: InsertionContext, name: String) {
+        val doc = ctx.document
+        val chars = doc.charsSequence
+        var start = ctx.tailOffset
+        while (start > 0 && (chars[start - 1].isLetterOrDigit() || chars[start - 1] == '_' || chars[start - 1] == '-')) {
+            start--
+        }
+        if (start == 0 || chars[start - 1] != '.') return // not a `.member` access; leave as-is
+        val dotPos = start - 1
+        val replacement = "['$name']"
+        doc.replaceString(dotPos, ctx.tailOffset, replacement)
+        PsiDocumentManager.getInstance(ctx.project).commitDocument(doc)
+        ctx.editor.caretModel.moveToOffset(dotPos + replacement.length)
     }
 
     /** Bare identifier -> offer to auto-import each sibling CSS module under a sensible binding. */

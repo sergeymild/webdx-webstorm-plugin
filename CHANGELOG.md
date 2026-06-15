@@ -43,6 +43,11 @@ tsgo engine where the TS language service doesn't load plugins.
   `--`-modifier names like `sidebar--expanded`, which are not valid JS identifiers and can
   only be referenced via brackets — they are now correctly counted as used, validated as
   unknown, and found by Find Usages. (`CssModules.bracketMemberAccess`.)
+- **`styles.` completion of a `--`-modifier class inserts bracket access.** Picking a
+  non-identifier class (e.g. `sidebar--expanded`) after `styles.` now rewrites the dot into
+  `styles['sidebar--expanded']` instead of leaving the invalid `styles.sidebar--expanded`
+  (which the JS parser flagged as an error). Plain identifiers keep dot access.
+  (`CssModuleStylesCompletion`.)
 
 ## 1.7.0 — 2026-06-13
 - **New: React Native `StyleSheet.create` support** (`com.webdx.rnstyles`), source-resolved
