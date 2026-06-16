@@ -1,6 +1,8 @@
 package com.webdx.cssmodules
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -60,5 +62,31 @@ class CssModuleImportBindingTest {
     @Test
     fun `falls back to typed name when module starts with a digit`() {
         assertEquals("styles", importBindingFor("styles", "2cols.module.scss", "Index.tsx"))
+    }
+
+    // --- guard: only offer a module for a plausible style binding -----------
+
+    @Test
+    fun `offers own module for the conventional styles binding`() {
+        assertTrue(shouldOfferModuleImport("styles", "PicksLoader.module.scss", "PicksLoader.tsx"))
+    }
+
+    @Test
+    fun `offers a sibling module for its derived camelCase binding`() {
+        assertTrue(shouldOfferModuleImport("sidebar", "Sidebar.module.scss", "Profile.tsx"))
+        assertTrue(shouldOfferModuleImport("userProfile", "user-profile.module.scss", "Index.tsx"))
+    }
+
+    @Test
+    fun `offers any sibling module for the conventional styles binding`() {
+        assertTrue(shouldOfferModuleImport("styles", "Sidebar.module.scss", "Profile.tsx"))
+    }
+
+    @Test
+    fun `does not offer a module for an unrelated identifier`() {
+        // The actual bug: an unresolved `picksAnalytics` must NOT get
+        // `import picksAnalytics from './PicksLoader.module.scss'`.
+        assertFalse(shouldOfferModuleImport("picksAnalytics", "PicksLoader.module.scss", "PicksLoader.tsx"))
+        assertFalse(shouldOfferModuleImport("useEffect", "Sidebar.module.scss", "Profile.tsx"))
     }
 }

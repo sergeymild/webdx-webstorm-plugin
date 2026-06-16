@@ -9,10 +9,7 @@ import com.intellij.lang.javascript.modules.imports.JSModuleDescriptor
 import com.intellij.lang.javascript.modules.imports.filter.JSImportCandidatesFilter
 import com.intellij.lang.javascript.modules.imports.providers.JSCandidatesProcessor
 import com.intellij.lang.javascript.modules.imports.providers.JSImportCandidatesProvider
-import com.intellij.openapi.diagnostic.logger
 import com.intellij.psi.PsiManager
-
-private val LOG = logger<CssModuleImportCandidatesFactory>()
 
 private fun isCssModuleFileName(name: String): Boolean {
     val n = name.lowercase()
@@ -43,6 +40,25 @@ internal fun importBindingFor(typedName: String, moduleFileName: String, current
     return camelCaseIdentifier(base) ?: typedName
 }
 
+/** The conventional default binding for a CSS module (`import styles from './X.module.scss'`). */
+private const val CONVENTIONAL_STYLES_BINDING = "styles"
+
+/**
+ * Whether the sibling CSS module [moduleFileName] should be offered as an auto-import
+ * for the unresolved identifier [typedName] in [currentFileName].
+ *
+ * The unresolved-reference quick fix fires for EVERY unknown name, so without this
+ * guard any identifier (e.g. an un-imported `picksAnalytics`) would get a bogus
+ * `import picksAnalytics from './X.module.scss'` candidate — and [CssModuleImportFilterFactory]
+ * would then suppress the real candidates (the named import the user actually wants).
+ * Only offer when the typed name is a plausible style binding: the conventional `styles`,
+ * or the module-derived camelCase name (`Sidebar.module.scss` -> `sidebar`).
+ */
+internal fun shouldOfferModuleImport(typedName: String, moduleFileName: String, currentFileName: String): Boolean {
+    if (typedName == CONVENTIONAL_STYLES_BINDING) return true
+    return typedName == importBindingFor(CONVENTIONAL_STYLES_BINDING, moduleFileName, currentFileName)
+}
+
 /** `UserProfile` / `user-profile` / `user_profile` -> `userProfile`; null if not a valid identifier. */
 private fun camelCaseIdentifier(base: String): String? {
     val words = base.split(Regex("[^A-Za-z0-9]+")).filter { it.isNotEmpty() }
@@ -63,11 +79,6 @@ private fun camelCaseIdentifier(base: String): String? {
  */
 class CssModuleImportCandidatesFactory : JSImportCandidatesProvider.CandidatesFactory {
     override fun createProvider(placeInfo: JSImportPlaceInfo): JSImportCandidatesProvider {
-        runCatching {
-            java.io.File("/tmp/css-scoped-import-create.txt")
-                .writeText("createProvider called, file=${placeInfo.file?.name}")
-        }
-        LOG.warn("[CSS-SCOPED] importCandidates createProvider called, file=${placeInfo.file?.name}")
         return CssModuleImportProvider(placeInfo)
     }
 }
@@ -77,11 +88,6 @@ private class CssModuleImportProvider(
 ) : JSImportCandidatesProvider {
 
     override fun processCandidates(name: String, processor: JSCandidatesProcessor) {
-        runCatching {
-            java.io.File("/tmp/css-scoped-import-process.txt")
-                .writeText("processCandidates name='$name' file=${place.file?.name}")
-        }
-        LOG.warn("[CSS-SCOPED] processCandidates name='$name' file=${place.file?.name}")
         val currentFile = place.file ?: return
         val dir = currentFile.parent ?: return
         val psiManager = PsiManager.getInstance(place.project)
@@ -92,6 +98,11 @@ private class CssModuleImportProvider(
             .sortedByDescending { matchesCurrentFile(it.name, currentFile.name) }
 
         for (vf in siblings) {
+            // Only offer a module when the typed name is a plausible style binding, so an
+            // unrelated unresolved identifier (e.g. `picksAnalytics`) is never offered a
+            // CSS-module default import — and the companion filter never suppresses the
+            // real candidate the user actually wants.
+            if (!shouldOfferModuleImport(name, vf.name, currentFile.name)) continue
             val psiFile = psiManager.findFile(vf) ?: continue
             // Build a DEFAULT import under the typed name: `import <name> from './X.module.scss'`.
             // This path (the unresolved-reference quick fix) only adds the import — it does not
@@ -108,7 +119,6 @@ private class CssModuleImportProvider(
                 ES6ImportPsiUtil.ImportExportType.DEFAULT,
             )
             processor.processCandidate(candidate)
-            LOG.warn("[CSS-SCOPED] import candidate: 'import $name from $specifier'")
         }
     }
 }
