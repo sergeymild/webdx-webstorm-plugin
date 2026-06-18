@@ -4,10 +4,13 @@ import com.intellij.lang.ecmascript6.psi.ES6ExportDeclaration
 import com.intellij.lang.ecmascript6.psi.ES6ImportDeclaration
 import com.intellij.lang.ecmascript6.psi.ES6ImportExportDeclaration
 import com.intellij.lang.ecmascript6.psi.ES6NamespaceImportExport
+import com.intellij.lang.ecmascript6.resolve.ES6ImportHandler
 import com.intellij.lang.ecmascript6.resolve.ES6PsiUtil
+import com.intellij.lang.javascript.psi.JSPsiNamedElementBase
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiReference
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.searches.ReferencesSearch
 import com.intellij.psi.util.PsiTreeUtil
@@ -91,7 +94,11 @@ object DeadReExports {
      */
     class Analyzer(private val project: Project) {
         private val scope = GlobalSearchScope.projectScope(project)
-        private val memo = HashMap<Pair<String, String>, Boolean>()
+        // Verdict memos are per-mode: the full liveness (which also counts a reference from a live
+        // same-file export) and the external-only liveness give different answers for the same
+        // (path, name), so they cannot share one cache.
+        private val memoFull = HashMap<Pair<String, String>, Boolean>()
+        private val memoExternal = HashMap<Pair<String, String>, Boolean>()
         // Per-origin-file reference list cache: ReferencesSearch is a project-wide scan, so a
         // barrel with N specifiers would otherwise re-run the SAME search N times. Keyed on the
         // same path string used for the memo key. The verdict memo dedupes by (path, name); this
@@ -100,6 +107,9 @@ object DeadReExports {
         // Memo for "does source module set <sourceKey> export <name>?" — resolveSymbolInModules is
         // a per-name module resolution, and the same names recur across a barrel's many consumers.
         private val exportsMemo = HashMap<Pair<String, String>, Boolean>()
+        // Per-(file, name) cache of in-file references to the symbol exported as that name — used by
+        // the same-file liveness pass. A find-usages search per export, deduped by the memo key.
+        private val sameFileRefsCache = HashMap<Pair<String, String>, List<PsiReference>>()
 
         /**
          * Result of one recursive [isLive] computation: the liveness verdict plus whether
@@ -111,17 +121,36 @@ object DeadReExports {
          */
         private data class Result(val live: Boolean, val hitCycle: Boolean)
 
-        /** Is [name] (a name exported by [moduleFile]) reached by any real consumer? */
+        /**
+         * Is [name] (a name exported by [moduleFile]) used *at all* — reached by a real external
+         * consumer (directly or through the re-export graph), or transitively via another *live*
+         * same-file export that references it? When this is true but [isExternallyLive] is false,
+         * the symbol is alive yet its `export` keyword is redundant (it could be made local).
+         */
         fun isLive(moduleFile: PsiFile, name: String): Boolean =
-            isLive(moduleFile, name, HashSet()).live
+            isLive(moduleFile, name, sameFile = true, HashSet()).live
 
-        private fun isLive(moduleFile: PsiFile, name: String, visited: MutableSet<Pair<String, String>>): Result {
+        /**
+         * Is [name] reached by a real *external* consumer (import / require / dynamic import),
+         * directly or through the re-export graph? Ignores same-file uses — so this answers "is the
+         * `export` keyword needed", as opposed to [isLive]'s "is the symbol used at all".
+         */
+        fun isExternallyLive(moduleFile: PsiFile, name: String): Boolean =
+            isLive(moduleFile, name, sameFile = false, HashSet()).live
+
+        private fun isLive(
+            moduleFile: PsiFile,
+            name: String,
+            sameFile: Boolean,
+            visited: MutableSet<Pair<String, String>>,
+        ): Result {
             val origin = moduleFile.originalFile
             // NOTE: fall back to origin.name only when there is no backing file (in-memory
             // PSI in tests). Two distinct same-named in-memory files could collide here, but
             // real project files always carry a virtualFile path, so this is test-only.
             val pathKey = origin.virtualFile?.path ?: origin.name
             val key = pathKey to name
+            val memo = if (sameFile) memoFull else memoExternal
             memo[key]?.let { return Result(it, false) }
             // A Next.js entry point is consumed by the framework (no explicit importer exists), so it —
             // and any name it re-exports — is always live. This also covers barrels reached only via a page,
@@ -150,13 +179,27 @@ object DeadReExports {
                         val g = kind.decl.containingFile?.originalFile ?: continue
                         if (forwardsName(kind.decl, name)) {
                             for (forwarded in forwardedAs(kind.decl, name)) {
-                                val child = isLive(g, forwarded, visited)
+                                val child = isLive(g, forwarded, sameFile, visited)
                                 if (child.hitCycle) hitCycle = true
                                 if (child.live) { live = true; break }
                             }
                         }
                         if (live) break
                     }
+                }
+            }
+            // Same-file liveness (full mode only): an export N is also live when another export M in
+            // the SAME file references N's symbol and M is itself live — so a type/value that is only
+            // part of another *used* export's surface (`PicksItem.profile: PicksProfile`) stays alive.
+            // A self-reference (`SomeFun.displayName = 'SomeFun'`) or a reference from a *dead* sibling
+            // does not. Skipped in external-only mode, which answers "is the `export` keyword needed".
+            if (sameFile && !live) {
+                for (ref in sameFileRefs(origin, pathKey, name)) {
+                    val carrier = enclosingExportedName(ref.element) ?: continue
+                    if (carrier == name) continue // a symbol referencing itself never keeps itself alive
+                    val child = isLive(origin, carrier, sameFile, visited)
+                    if (child.hitCycle) hitCycle = true
+                    if (child.live) { live = true; break }
                 }
             }
             // Only cache trustworthy verdicts: any positive result, or a negative that
@@ -257,6 +300,43 @@ object DeadReExports {
             return decl.exportSpecifiers
                 .filter { it.referenceName == name }
                 .map { it.declaredName ?: name }
+        }
+
+        /**
+         * In-file references to the symbol(s) [file] *directly declares* and exports as [name]. We
+         * locate the declared symbol by scanning [file] (not via cross-module resolution — that
+         * follows `… from` re-export chains and the IDE's resolver blows the stack on cyclic
+         * barrels), then run a find-usages search restricted to [file]'s own scope. External uses
+         * are already covered by the module-file reference scan in [isLive], so we only need
+         * same-file uses here, and a pure re-export name (no local declaration) yields none.
+         * Memoized by [pathKey] to [name].
+         */
+        private fun sameFileRefs(file: PsiFile, pathKey: String, name: String): List<PsiReference> =
+            sameFileRefsCache.getOrPut(pathKey to name) {
+                val symbols = PsiTreeUtil.findChildrenOfType(file, JSPsiNamedElementBase::class.java)
+                    .filter { it.name == name && ES6ImportHandler.isExportedDirectly(it) }
+                if (symbols.isEmpty()) emptyList()
+                else {
+                    val fileScope = GlobalSearchScope.fileScope(file)
+                    symbols.flatMap { ReferencesSearch.search(it, fileScope).findAll() }
+                }
+            }
+
+        /**
+         * The name of the nearest directly-exported declaration enclosing [refElement], or null when
+         * the reference is not inside any exported declaration (e.g. a top-level
+         * `SomeFun.displayName = …` statement). This is the "carrier" export whose liveness decides
+         * whether the referenced symbol is kept alive.
+         */
+        private fun enclosingExportedName(refElement: PsiElement): String? {
+            var el: PsiElement? = refElement
+            while (el != null && el !is PsiFile) {
+                if (el is JSPsiNamedElementBase && ES6ImportHandler.isExportedDirectly(el)) {
+                    el.name?.let { return it }
+                }
+                el = el.parent
+            }
+            return null
         }
     }
 }
