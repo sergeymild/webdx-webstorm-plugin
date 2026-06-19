@@ -22,6 +22,7 @@ class CssModuleGotoDeclarationHandler : GotoDeclarationHandler {
     ): Array<PsiElement>? {
         val element = sourceElement ?: return null
         val target = CssModuleClassNavigation.resolveTarget(element)
+            ?: CssModuleClassNavigation.resolveExtendTarget(element)
         // DIAGNOSTIC (temporary): grep idea.log for "[CSS-GOTO]".
         if (target != null || CssModuleClassNavigation.isMemberAccessLeaf(element)) {
             log.warn(

@@ -170,6 +170,58 @@ class CssModuleInspectionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testClassUsedOnlyViaExtendIsNotUnused() {
+        // common.commonButton is consumed solely through `@extend .commonButton` in Comp.module.scss
+        // (Comp is used from JS, so the chain has a JS consumer and the inspection runs), but
+        // .commonButton is never referenced as `styles.commonButton`. It must NOT be flagged unused.
+        val common = myFixture.addFileToProject(
+            "src/common.module.scss",
+            ".commonButton { cursor: pointer; }\n.deadInCommon { color: green; }",
+        )
+        myFixture.addFileToProject(
+            "src/Comp.module.scss",
+            "@import './common.module.scss';\n.button { @extend .commonButton; }",
+        )
+        myFixture.addFileToProject(
+            "src/Comp.tsx",
+            "import styles from './Comp.module.scss';\nconst a = styles.button;",
+        )
+        myFixture.configureFromExistingVirtualFile(common.virtualFile)
+        myFixture.enableInspections(CssModuleUnusedClassInspection())
+
+        val descriptions = myFixture.doHighlighting().mapNotNull { it.description }
+        assertFalse(
+            "'commonButton' is used via @extend and must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("'commonButton'") },
+        )
+        assertTrue(
+            "'deadInCommon' is never referenced and SHOULD be flagged, got: $descriptions",
+            descriptions.any { it.contains("'deadInCommon'") && it.contains("not used") },
+        )
+    }
+
+    fun testExtendReferenceSiteIsNotFlaggedUnused() {
+        // The `.commonButton` inside `.button { @extend .commonButton }` is a REFERENCE, not a
+        // declaration, so it must not be greyed as an unused module class of Comp.module.scss.
+        myFixture.addFileToProject("src/common.module.scss", ".commonButton { cursor: pointer; }")
+        val comp = myFixture.addFileToProject(
+            "src/Comp.module.scss",
+            "@import './common.module.scss';\n.button { @extend .commonButton; }",
+        )
+        myFixture.addFileToProject(
+            "src/Comp.tsx",
+            "import styles from './Comp.module.scss';\nconst a = styles.button;",
+        )
+        myFixture.configureFromExistingVirtualFile(comp.virtualFile)
+        myFixture.enableInspections(CssModuleUnusedClassInspection())
+
+        val descriptions = myFixture.doHighlighting().mapNotNull { it.description }
+        assertFalse(
+            "@extend .commonButton reference must NOT be flagged unused, got: $descriptions",
+            descriptions.any { it.contains("'commonButton'") },
+        )
+    }
+
     fun testBamClassNotFlaggedAsUnknown() {
         myFixture.addFileToProject(
             "src/Bam.module.scss",

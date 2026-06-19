@@ -176,7 +176,8 @@ class CssModuleFindUsagesTest : BasePlatformTestCase() {
     }
 
     fun testReportsUsagesThroughAtImportChain() {
-        // common is @import-ed into Comp.module.scss (CSS-to-CSS); Comp.tsx uses styles.shared.
+        // common is @import-ed into Comp.module.scss (CSS-to-CSS); Comp.tsx uses styles.shared
+        // AND Comp.module.scss `@extend .shared`. Both kinds of usage must be reported.
         myFixture.addFileToProject(
             "Comp.module.scss",
             "@import './common.module.scss';\n.local { @extend .shared; }",
@@ -191,15 +192,41 @@ class CssModuleFindUsagesTest : BasePlatformTestCase() {
         myFixture.configureByText("common.module.scss", ".sha<caret>red { color: red; }")
 
         val usages = myFixture.findUsages(cssClassAtCaret())
-        // Only the two styles.shared in Comp.tsx (through the @import chain).
-        // The @extend .shared and Other.module.scss's .shared declaration must NOT appear.
+        // Two `styles.shared` in Comp.tsx + the `@extend .shared` site in Comp.module.scss.
+        // Other.module.scss's own `.shared` declaration must NOT appear.
         assertEquals(
             "usages: ${usages.map { it.element?.containingFile?.name + ":" + it.element?.text }}",
-            2, usages.size,
+            3, usages.size,
+        )
+        assertEquals(
+            "two styles.shared usages in Comp.tsx",
+            2, usages.count { it.element?.containingFile?.name == "Comp.tsx" },
         )
         assertTrue(
-            "all usages must be in Comp.tsx",
-            usages.all { it.element?.containingFile?.name == "Comp.tsx" },
+            "the @extend .shared site in Comp.module.scss is reported",
+            usages.any { it.element?.containingFile?.name == "Comp.module.scss" && it.element?.text == "shared" },
         )
+        assertTrue(
+            "Other.module.scss's own declaration must NOT be a usage",
+            usages.none { it.element?.containingFile?.name == "Other.module.scss" },
+        )
+    }
+
+    fun testReportsExtendClassAsUsageWithoutJsConsumer() {
+        // `.commonButton` is consumed only by `@extend .commonButton` in an importing module —
+        // no `styles.commonButton` anywhere. Find Usages on the declaration must still find it.
+        myFixture.addFileToProject(
+            "Comp.module.scss",
+            "@import './common.module.scss';\n.button { @extend .commonButton; }",
+        )
+        myFixture.configureByText("common.module.scss", ".common<caret>Button { cursor: pointer; }")
+
+        val usages = myFixture.findUsages(cssClassAtCaret())
+        assertEquals(
+            "usages: ${usages.map { it.element?.containingFile?.name + ":" + it.element?.text }}",
+            1, usages.size,
+        )
+        assertEquals("Comp.module.scss", usages.first().element?.containingFile?.name)
+        assertEquals("commonButton", usages.first().element?.text)
     }
 }

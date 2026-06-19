@@ -40,6 +40,13 @@ class CssModuleGotoDeclarationAction : GotoDeclarationAction() {
                             return
                         }
                     }
+                    // SCSS `@extend .class`: navigate to the extended class's declaration
+                    // (resolved through the module's @import graph).
+                    val extendTarget = CssModuleClassNavigation.resolveExtendTarget(element)
+                    if (extendTarget != null) {
+                        PsiNavigateUtil.navigate(extendTarget)
+                        return
+                    }
                     // React Native StyleSheet styles: styles.<key> or a destructured local.
                     val rnTarget = com.webdx.rnstyles.RnStyles.resolveKeyProperty(element)
                     if (rnTarget != null) {
