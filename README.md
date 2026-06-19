@@ -15,7 +15,11 @@ Feature areas:
   Also recognises **"bam" classes** built from a string `$var` selector via `#{$var}`
   interpolation + `&`-BEM nesting (`#{$sidebar} { &__search {} }`), and **bracket access**
   `styles['kebab--class']` (completion inserts brackets for non-identifier names; go-to /
-  inspections / Find Usages read them).
+  inspections / Find Usages read them). A dynamic `styles[variant]` access never
+  false-flags — when the key is computed, every class of that module counts as used.
+  Cmd+Click on a class declaration shows its usages; a class reachable only dynamically
+  (no static `styles.foo`) falls back to its `styles[variant]` application site, while a
+  statically-used class lists only its real references (the dynamic site isn't mixed in).
 - **i18n (`react-i18next`)** — translation-key completion, unknown-key inspection
   (i18next plural/ordinal-aware: a base `key` is valid when only `key_one`/`key_other`/… exist),
   go-to-definition + scoped Find Usages on a key, and interpolation tooling
@@ -621,9 +625,6 @@ triggers (probed — no highlights, no quick-fixes). Verify it manually in the I
 - `styles.<class>` go-to only intercepts the `GotoDeclaration` action; a non-standard
   keybinding/gesture bound to a *different* navigation action isn't covered.
 - Quick-fix on the "Unknown CSS class" inspection (create the class in the module).
-- Suppress the "unused" warning when a module is accessed dynamically
-  (`styles[variable]`) in an importer. (Static bracket access `styles['kebab-case']`
-  is already handled by `CssModules.bracketMemberAccess`.)
 - Rename for `styles.foo` ↔ the CSS class.
 - Collapse the per-dialect registrations of the unused/unknown inspections to a single
   `language="CSS"` each (same dialect-duplication risk as gotcha #9).

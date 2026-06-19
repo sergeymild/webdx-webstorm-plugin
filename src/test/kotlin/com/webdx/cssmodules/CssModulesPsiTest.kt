@@ -58,6 +58,35 @@ class CssModulesPsiTest : BasePlatformTestCase() {
         assertNull(CssModules.resolveModuleForBinding(tsx, "styles"))
     }
 
+    // --- isModuleClassDeclarationLeaf -------------------------------------
+
+    fun testIsModuleClassDeclarationLeafTrueOnClassSelector() {
+        val scss = myFixture.addFileToProject("src/Comp.module.scss", ".neutral { color: grey; }")
+        val leaf = scss.findElementAt(scss.text.indexOf("neutral"))!!
+        assertTrue(CssModuleClassNavigation.isModuleClassDeclarationLeaf(leaf))
+    }
+
+    fun testIsModuleClassDeclarationLeafTrueOnBamSelector() {
+        val scss = myFixture.addFileToProject(
+            "src/Bam.module.scss",
+            "\$sidebar: '.sidebar';\n#{\$sidebar} {\n  &__search { display: none; }\n}",
+        )
+        val leaf = scss.findElementAt(scss.text.indexOf("&__search") + 3)!!
+        assertTrue(CssModuleClassNavigation.isModuleClassDeclarationLeaf(leaf))
+    }
+
+    fun testIsModuleClassDeclarationLeafFalseOutsideModuleFile() {
+        val scss = myFixture.addFileToProject("src/plain.scss", ".neutral { color: grey; }")
+        val leaf = scss.findElementAt(scss.text.indexOf("neutral"))!!
+        assertFalse(CssModuleClassNavigation.isModuleClassDeclarationLeaf(leaf))
+    }
+
+    fun testIsModuleClassDeclarationLeafFalseOnProperty() {
+        val scss = myFixture.addFileToProject("src/Comp.module.scss", ".neutral { color: grey; }")
+        val leaf = scss.findElementAt(scss.text.indexOf("color"))!!
+        assertFalse(CssModuleClassNavigation.isModuleClassDeclarationLeaf(leaf))
+    }
+
     // --- cssModuleBindings -------------------------------------------------
 
     fun testCssModuleBindingsMapsBindingToClassNames() {

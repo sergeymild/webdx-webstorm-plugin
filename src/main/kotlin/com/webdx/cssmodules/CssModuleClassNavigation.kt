@@ -97,4 +97,19 @@ internal object CssModuleClassNavigation {
         if (name.isEmpty() || !name.first().isJavaIdentifierStart()) return false
         return CssModules.prevMeaningfulLeaf(element)?.text == "."
     }
+
+    /**
+     * True when [element] is a leaf on a class-selector DECLARATION inside a CSS-module file —
+     * a literal `.class` selector or a "bam" `&__x`/`#{$var}__x` selector. Used by the
+     * GotoDeclaration action to decide whether Cmd+Click on the declaration should Show Usages
+     * (so the developer reaches a dynamic `styles[variant]` application site). Cheap (current
+     * file only), safe to call on the EDT.
+     */
+    fun isModuleClassDeclarationLeaf(element: PsiElement): Boolean {
+        if (element.firstChild != null) return false
+        val file = element.containingFile?.originalFile ?: return false
+        if (!CssModules.isModuleFileName(file.name)) return false
+        if (PsiTreeUtil.getParentOfType(element, CssClass::class.java, false) != null) return true
+        return BamSelectors.bamClassForElement(element) != null
+    }
 }

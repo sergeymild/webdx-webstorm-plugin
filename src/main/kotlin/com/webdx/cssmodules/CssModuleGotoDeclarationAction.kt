@@ -57,6 +57,18 @@ class CssModuleGotoDeclarationAction : GotoDeclarationAction() {
                             return
                         }
                     }
+                    // CSS-module class DECLARATION (`.foo` / bam `&__x`): Cmd+Click shows its usages
+                    // (scoped Find Usages), so a class applied only dynamically (`styles[variant]`)
+                    // still has a click target — the usages popup jumps straight to the access site
+                    // when there is exactly one.
+                    if (CssModuleClassNavigation.isModuleClassDeclarationLeaf(element)) {
+                        val showUsages = com.intellij.openapi.actionSystem.ActionManager.getInstance()
+                            .getAction("ShowUsages")
+                        if (showUsages != null) {
+                            showUsages.actionPerformed(e)
+                            return
+                        }
+                    }
                 }
             }
         } catch (t: Throwable) {

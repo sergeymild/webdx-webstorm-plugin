@@ -102,6 +102,79 @@ class CssModuleFindUsagesTest : BasePlatformTestCase() {
         assertEquals("usages: ${usages.map { it.element?.text }}", 2, usages.size)
     }
 
+    fun testReportsDynamicBracketAccessSite() {
+        // `.neutral` is reachable only via the dynamic `styles[variant]` access — there is no
+        // static `styles.neutral`. The dynamic access site must be reported as its usage so
+        // Find Usages / Cmd+Click can navigate to where the class is applied via the variant.
+        myFixture.addFileToProject(
+            "Card.tsx",
+            "import styles from './Card.module.scss';\n" +
+                "function Card({ variant }) { return styles[variant]; }",
+        )
+        myFixture.configureByText(
+            "Card.module.scss",
+            ".card { }\n.neu<caret>tral { color: grey; }\n.accent { }",
+        )
+
+        val usages = myFixture.findUsages(cssClassAtCaret())
+        assertEquals("usages: ${usages.map { it.element?.containingFile?.name + ":" + it.element?.text }}", 1, usages.size)
+        assertEquals("Card.tsx", usages.first().element?.containingFile?.name)
+    }
+
+    fun testStaticallyUsedClassDoesNotIncludeDynamicSite() {
+        // A class with a real static reference (`styles.bullets`) must report ONLY that — the
+        // dynamic `styles[variant]` site in the same file must NOT be mixed in (the bug: every
+        // class showed `styles[variant]` as an extra usage).
+        myFixture.addFileToProject(
+            "Card.tsx",
+            "import styles from './Card.module.scss';\n" +
+                "function Card({ variant }) {\n" +
+                "  return [styles.card, styles[variant], styles.bullets];\n" +
+                "}",
+        )
+        myFixture.configureByText(
+            "Card.module.scss",
+            ".card { }\n.neutral { }\n.accent { }\n.bul<caret>lets { }",
+        )
+
+        val usages = myFixture.findUsages(cssClassAtCaret())
+        assertEquals("usages: ${usages.map { it.element?.text }}", 1, usages.size)
+        assertEquals("bullets", usages.first().element?.text)
+    }
+
+    fun testDynamicSiteReportedOnlyForClassWithoutStaticUse() {
+        // Same fixture: `.neutral` has NO static reference, so the dynamic `styles[variant]` site
+        // IS its (only) usage — the fallback kicks in exactly for dynamic-only classes.
+        myFixture.addFileToProject(
+            "Card.tsx",
+            "import styles from './Card.module.scss';\n" +
+                "function Card({ variant }) {\n" +
+                "  return [styles.card, styles[variant], styles.bullets];\n" +
+                "}",
+        )
+        myFixture.configureByText(
+            "Card.module.scss",
+            ".card { }\n.neu<caret>tral { }\n.accent { }\n.bullets { }",
+        )
+
+        val usages = myFixture.findUsages(cssClassAtCaret())
+        assertEquals("usages: ${usages.map { it.element?.text }}", 1, usages.size)
+        assertEquals("styles", usages.first().element?.text)
+    }
+
+    fun testDoesNotReportDynamicSiteForOtherQualifier() {
+        // A dynamic `other[variant]` on an unrelated object must NOT be reported as a usage.
+        myFixture.addFileToProject(
+            "Card.tsx",
+            "import styles from './Card.module.scss';\n" +
+                "const other = {};\nfunction Card({ variant }) { return other[variant]; }",
+        )
+        myFixture.configureByText("Card.module.scss", ".neu<caret>tral { color: grey; }")
+
+        val usages = myFixture.findUsages(cssClassAtCaret())
+        assertEquals("usages: ${usages.map { it.element?.text }}", 0, usages.size)
+    }
+
     fun testReportsUsagesThroughAtImportChain() {
         // common is @import-ed into Comp.module.scss (CSS-to-CSS); Comp.tsx uses styles.shared.
         myFixture.addFileToProject(

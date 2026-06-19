@@ -298,6 +298,31 @@ class CssModuleInspectionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testDynamicBracketAccessSuppressesUnused() {
+        // `styles[variant]` is a computed/dynamic key — we can't tell which classes it hits,
+        // so NO class of that module may be flagged unused (mirrors the real ComparisonCard
+        // case where `.neutral`/`.accent` are reached only via `styles[variant]`).
+        myFixture.addFileToProject(
+            "src/Card.tsx",
+            "import styles from './Card.module.scss';\n" +
+                "function Card({ variant }) {\n" +
+                "  return <div className={[styles.card, styles[variant]].join(' ')} />;\n" +
+                "}",
+        )
+        val scss = myFixture.addFileToProject(
+            "src/Card.module.scss",
+            ".card { color: black; }\n.neutral { color: grey; }\n.accent { color: blue; }",
+        )
+        myFixture.configureFromExistingVirtualFile(scss.virtualFile)
+        myFixture.enableInspections(CssModuleUnusedClassInspection())
+
+        val descriptions = myFixture.doHighlighting().mapNotNull { it.description }
+        assertFalse(
+            "dynamic styles[variant] access must suppress ALL unused flags, got: $descriptions",
+            descriptions.any { it.contains("not used") },
+        )
+    }
+
     fun testBracketUnknownClassIsFlagged() {
         myFixture.addFileToProject(
             "Bam.module.scss",
