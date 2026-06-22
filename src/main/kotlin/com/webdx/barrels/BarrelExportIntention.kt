@@ -1,12 +1,15 @@
 package com.webdx.barrels
 
 import com.intellij.codeInsight.intention.PsiElementBaseIntentionAction
+import com.intellij.codeInsight.intention.preview.IntentionPreviewInfo
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.text.StringUtil
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
 import com.webdx.cssmodules.CssModules
 
 /**
@@ -32,6 +35,19 @@ class BarrelExportIntention : PsiElementBaseIntentionAction() {
         val plan = BarrelExports.planFor(file, symbol, isDefault, project) ?: return false
         label = plan.moduleRootLabel
         return plan.edits.isNotEmpty()
+    }
+
+    override fun generatePreview(project: Project, editor: Editor, file: PsiFile): IntentionPreviewInfo {
+        val element = file.findElementAt(editor.caretModel.offset) ?: return IntentionPreviewInfo.EMPTY
+        val (symbol, isDefault) = BarrelExports.exportedNameAt(element) ?: return IntentionPreviewInfo.EMPTY
+        val plan = BarrelExports.planFor(file, symbol, isDefault, project) ?: return IntentionPreviewInfo.EMPTY
+        val rows = plan.edits.joinToString("<br/>") { e ->
+            val where = (e.indexFile.parent?.name?.let { "$it/" } ?: "") + e.indexFile.name
+            StringUtil.escapeXmlEntities(e.line) + "  &rarr;  " + StringUtil.escapeXmlEntities(where)
+        }
+        return IntentionPreviewInfo.Html(
+            "<p>Add re-exports up to <b>" + StringUtil.escapeXmlEntities(plan.moduleRootLabel) + "</b>:</p>" + rows,
+        )
     }
 
     override fun invoke(project: Project, editor: Editor?, element: PsiElement) {

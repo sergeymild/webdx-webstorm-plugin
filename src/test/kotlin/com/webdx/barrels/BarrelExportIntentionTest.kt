@@ -99,6 +99,35 @@ class BarrelExportIntentionTest : BasePlatformTestCase() {
         assertEmpty(filterByFamily())
     }
 
+    fun testGeneratePreviewDoesNotThrowAndDescribesEdits() {
+        tsconfig()
+        myFixture.addFileToProject("package.json", """{ "name": "web" }""")
+        myFixture.addFileToProject("components/index.ts", "export * from './Other'\n")
+        myFixture.addFileToProject("components/Button/index.ts", "export * from './placeholder'\n")
+        configureByPathAndText("components/Button/Button.tsx", "export const But<caret>ton = () => null\n")
+        val intention = filterByFamily().first()
+        // generatePreview must not throw (no write-in-read-action) and must mention the planned edit.
+        // getIntentionPreviewText returns null for Html previews (only for diff previews); use
+        // getPreviewContent which returns the Html string for Html previews.
+        val preview = com.intellij.openapi.application.ReadAction.compute<String, Exception> {
+            com.intellij.codeInsight.intention.impl.preview.IntentionPreviewPopupUpdateProcessor
+                .getPreviewContent(project, intention, myFixture.file, myFixture.editor)
+        }
+        assertNotNull("Preview must not be null — generatePreview should not crash", preview)
+        assertFalse(
+            "Preview should not be empty — generatePreview returned EMPTY",
+            preview!!.isEmpty(),
+        )
+        assertTrue(
+            "Preview should mention 'export' (a planned re-export line)",
+            preview.contains("export", ignoreCase = true),
+        )
+        assertTrue(
+            "Preview should mention 'Button' (the symbol / file being wired)",
+            preview.contains("Button"),
+        )
+    }
+
     fun testReInvocationProducesNoDuplicateLine() {
         tsconfig()
         myFixture.addFileToProject("package.json", """{ "name": "web" }""")
