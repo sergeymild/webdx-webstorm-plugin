@@ -193,5 +193,30 @@ object BarrelExports {
         }
         return null
     }
-    fun planFor(componentFile: PsiFile, name: String, isDefault: Boolean, project: Project): Plan? = TODO("Task 6")
+    fun planFor(componentFile: PsiFile, name: String, isDefault: Boolean, project: Project): Plan? {
+        val vf = componentFile.originalFile.virtualFile ?: return null
+        val componentDir = vf.parent ?: return null
+        val chain = barrelChain(componentDir, project)
+        if (chain.isEmpty()) return null
+
+        val edits = mutableListOf<BarrelEdit>()
+        var exposedAsDefault = isDefault
+        for ((i, dir) in chain.withIndex()) {
+            val index = indexFileIn(dir) ?: continue
+            val target = if (i == 0) vf else chain[i - 1]
+            val spec = relativeSpecifier(dir, target)
+            val text = runCatching { VfsUtilCore.loadText(index) }.getOrDefault("")
+            if (forwardsName(text, name, spec)) { exposedAsDefault = false; continue }
+            if (exposedAsDefault && forwardsDefaultFrom(text, spec)) continue // keep default exposure for the parent
+            val line = reExportLine(name, exposedAsDefault, spec, detectStyle(text))
+            edits += BarrelEdit(index, line)
+            exposedAsDefault = false
+        }
+        if (edits.isEmpty()) return null
+
+        val cap = sourceRoot(componentDir, project)
+        val top = chain.last()
+        val label = (if (cap != null) VfsUtilCore.getRelativePath(top, cap) else null) ?: top.name
+        return Plan(label, edits)
+    }
 }
