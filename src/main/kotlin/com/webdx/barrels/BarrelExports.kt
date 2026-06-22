@@ -1,10 +1,16 @@
 package com.webdx.barrels
 
+import com.intellij.lang.ecmascript6.psi.ES6ExportDeclaration
+import com.intellij.lang.ecmascript6.psi.ES6ExportDefaultAssignment
+import com.intellij.lang.ecmascript6.psi.ES6ExportSpecifier
+import com.intellij.lang.ecmascript6.resolve.ES6ImportHandler
+import com.intellij.lang.javascript.psi.JSPsiNamedElementBase
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import com.intellij.psi.util.PsiTreeUtil
 import com.webdx.cssmodules.CssModules
 
 /**
@@ -152,6 +158,40 @@ object BarrelExports {
     /** Does [text] forward the default of [specifier] as default (`export { default } from '<spec>'`)? */
     fun forwardsDefaultFrom(text: String, specifier: String): Boolean =
         Regex("""export\s*\{\s*default\s*}\s*from\s+['"]${Regex.escape(specifier)}['"]""").containsMatchIn(text)
-    fun exportedNameAt(element: PsiElement): Pair<String, Boolean>? = TODO("Task 5")
+    /**
+     * The exported top-level symbol the caret sits on: `(name, isDefault)`, or null when the caret is
+     * not on an exported declaration / specifier. Anonymous `export default` derives the name from the
+     * file basename. Resolves against the original (physical) file.
+     */
+    fun exportedNameAt(element: PsiElement): Pair<String, Boolean>? {
+        var el: PsiElement? = element
+        var depth = 0
+        while (el != null && el !is PsiFile && depth < 20) {
+            when (val cur = el) {
+                is ES6ExportDefaultAssignment -> {
+                    val named = cur.namedElement as? JSPsiNamedElementBase
+                    val name = named?.name
+                        ?: element.containingFile?.originalFile?.virtualFile?.nameWithoutExtension
+                    return name?.let { it to true }
+                }
+                is JSPsiNamedElementBase -> {
+                    if (ES6ImportHandler.isExportedDirectly(cur)) {
+                        val isDefault = PsiTreeUtil.getParentOfType(cur, ES6ExportDefaultAssignment::class.java, false) != null
+                        cur.name?.let { return it to isDefault }
+                    }
+                }
+            }
+            el = el.parent
+            depth++
+        }
+        val spec = PsiTreeUtil.getParentOfType(element, ES6ExportSpecifier::class.java, false)
+        if (spec != null) {
+            val decl = PsiTreeUtil.getParentOfType(spec, ES6ExportDeclaration::class.java, false)
+            if (decl != null && decl.fromClause == null) {
+                spec.declaredName?.let { return it to (it == "default") }
+            }
+        }
+        return null
+    }
     fun planFor(componentFile: PsiFile, name: String, isDefault: Boolean, project: Project): Plan? = TODO("Task 6")
 }
