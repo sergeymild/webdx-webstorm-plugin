@@ -87,8 +87,33 @@ object BarrelExports {
         return cur
     }
 
-    fun barrelChain(componentDir: VirtualFile, project: Project): List<VirtualFile> = TODO("Task 4")
-    fun relativeSpecifier(fromDir: VirtualFile, target: VirtualFile): String = TODO("Task 4")
+    /**
+     * Existing index-barrel directories from [componentDir] up to (and including) the module root,
+     * bottom-up. Directories without an index are skipped. The walk stops at the first module root
+     * (package.json / alias-target) or at the source-root cap, whichever comes first.
+     */
+    fun barrelChain(componentDir: VirtualFile, project: Project): List<VirtualFile> {
+        val cap = sourceRoot(componentDir, project)
+        val out = mutableListOf<VirtualFile>()
+        var d: VirtualFile? = componentDir
+        while (d != null) {
+            if (indexFileIn(d) != null) out += d
+            if (isModuleRoot(d, project)) break
+            if (d == cap) break
+            d = d.parent
+        }
+        return out
+    }
+
+    /** Relative `./…` specifier from [fromDir] to [target] (an ancestor of target), file extension dropped. */
+    fun relativeSpecifier(fromDir: VirtualFile, target: VirtualFile): String {
+        val rel = VfsUtilCore.getRelativePath(target, fromDir) ?: target.name
+        val noExt = if (target.isDirectory) rel else {
+            val ext = target.extension
+            if (ext != null) rel.removeSuffix(".$ext") else rel
+        }
+        return "./$noExt"
+    }
     fun detectStyle(text: String): Style {
         val single = text.count { it == '\'' }
         val dbl = text.count { it == '"' }
