@@ -2,8 +2,10 @@ package com.webdx.barrels
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import com.webdx.cssmodules.CssModules
 
 /**
  * Source-resolved logic for the "export through barrel modules" intention. Detects the
@@ -24,9 +26,67 @@ object BarrelExports {
     private val INDEX_NAMES = listOf("index.ts", "index.tsx", "index.js", "index.jsx")
 
     // Implemented in later tasks.
-    fun indexFileIn(dir: VirtualFile): VirtualFile? = TODO("Task 3")
-    fun sourceRoot(fromDir: VirtualFile, project: Project): VirtualFile? = TODO("Task 3")
-    fun isModuleRoot(dir: VirtualFile, project: Project): Boolean = TODO("Task 3")
+    fun indexFileIn(dir: VirtualFile): VirtualFile? =
+        INDEX_NAMES.firstNotNullOfOrNull { dir.findChild(it) }
+
+    /**
+     * The directory the `@/` / baseUrl alias resolves to (the source root). Found by walking up
+     * for a tsconfig.json and applying its baseUrl; falls back to the nearest package.json dir,
+     * else null. Used only as the hard ceiling for the upward walk.
+     */
+    fun sourceRoot(fromDir: VirtualFile, project: Project): VirtualFile? {
+        val tsconfig = findUp(fromDir, "tsconfig.json")
+        if (tsconfig != null) {
+            val text = runCatching { VfsUtilCore.loadText(tsconfig) }.getOrNull()
+            val tsDir = tsconfig.parent
+            if (text != null && tsDir != null) {
+                val baseUrl = CssModules.tsconfigAliases(text).baseUrl
+                return if (baseUrl != null) resolveDir(tsDir, baseUrl) ?: tsDir else tsDir
+            }
+        }
+        return findUp(fromDir, "package.json")?.parent
+    }
+
+    /** A directory is a module root if it is a workspace package or its index is a path-alias target. */
+    fun isModuleRoot(dir: VirtualFile, project: Project): Boolean {
+        if (dir.findChild("package.json") != null) return true
+        val tsconfig = findUp(dir, "tsconfig.json") ?: return false
+        val text = runCatching { VfsUtilCore.loadText(tsconfig) }.getOrNull() ?: return false
+        val tsDir = tsconfig.parent ?: return false
+        val cfg = CssModules.tsconfigAliases(text)
+        val baseDir = cfg.baseUrl?.let { resolveDir(tsDir, it) } ?: tsDir
+        val index = indexFileIn(dir)
+        return cfg.paths.values.any { template ->
+            val target = resolveDir(baseDir, template.substringBefore("*").trimEnd('/'))
+            target == dir || (index != null && resolveFile(baseDir, template) == index)
+        }
+    }
+    /** Walk up from [start] (inclusive) looking for a direct child named [name]. */
+    private fun findUp(start: VirtualFile, name: String): VirtualFile? {
+        var cur: VirtualFile? = start
+        while (cur != null) {
+            cur.findChild(name)?.let { return it }
+            cur = cur.parent
+        }
+        return null
+    }
+
+    /** Resolve a `/`-separated relative path to a directory (ignores trailing file segment if missing). */
+    private fun resolveDir(from: VirtualFile, path: String): VirtualFile? = resolveFile(from, path)
+
+    private fun resolveFile(from: VirtualFile, path: String): VirtualFile? {
+        var cur: VirtualFile? = from
+        for (part in path.split('/')) {
+            cur = when (part) {
+                "", ".", "*" -> cur
+                ".." -> cur?.parent
+                else -> cur?.findChild(part)
+            }
+            if (cur == null) return null
+        }
+        return cur
+    }
+
     fun barrelChain(componentDir: VirtualFile, project: Project): List<VirtualFile> = TODO("Task 4")
     fun relativeSpecifier(fromDir: VirtualFile, target: VirtualFile): String = TODO("Task 4")
     fun detectStyle(text: String): Style {
