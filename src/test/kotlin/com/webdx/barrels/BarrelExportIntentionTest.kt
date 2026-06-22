@@ -98,4 +98,26 @@ class BarrelExportIntentionTest : BasePlatformTestCase() {
         configureByPathAndText("components/Button/Button.tsx", "const Pri<caret>vate = 1\n")
         assertEmpty(filterByFamily())
     }
+
+    fun testReInvocationProducesNoDuplicateLine() {
+        tsconfig()
+        myFixture.addFileToProject("package.json", """{ "name": "web" }""")
+        myFixture.addFileToProject("components/index.ts", "export * from './Other'\n")
+        myFixture.addFileToProject("components/Button/index.ts", "export * from './placeholder'\n")
+        configureByPathAndText("components/Button/Button.tsx", "export const But<caret>ton = () => null\n")
+
+        // First invocation — wires both barrels
+        val intention = filterByFamily().first()
+        myFixture.launchAction(intention)
+
+        // After first apply the intention must NOT be offered (already fully wired)
+        assertEmpty(filterByFamily())
+
+        // The re-export line must appear exactly once in the leaf barrel
+        assertEquals(
+            1,
+            Regex(Regex.escape("export * from './Button'"))
+                .findAll(textOf("components/Button/index.ts")).count(),
+        )
+    }
 }

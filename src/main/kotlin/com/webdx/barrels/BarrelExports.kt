@@ -5,6 +5,7 @@ import com.intellij.lang.ecmascript6.psi.ES6ExportDefaultAssignment
 import com.intellij.lang.ecmascript6.psi.ES6ExportSpecifier
 import com.intellij.lang.ecmascript6.resolve.ES6ImportHandler
 import com.intellij.lang.javascript.psi.JSPsiNamedElementBase
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VfsUtilCore
@@ -67,6 +68,7 @@ object BarrelExports {
             target == dir || (index != null && resolveFile(baseDir, template) == index)
         }
     }
+
     /** Walk up from [start] (inclusive) looking for a direct child named [name]. */
     private fun findUp(start: VirtualFile, name: String): VirtualFile? {
         var cur: VirtualFile? = start
@@ -120,6 +122,7 @@ object BarrelExports {
         }
         return "./$noExt"
     }
+
     fun detectStyle(text: String): Style {
         val single = text.count { it == '\'' }
         val dbl = text.count { it == '"' }
@@ -158,6 +161,7 @@ object BarrelExports {
     /** Does [text] forward the default of [specifier] as default (`export { default } from '<spec>'`)? */
     fun forwardsDefaultFrom(text: String, specifier: String): Boolean =
         Regex("""export\s*\{\s*default\s*}\s*from\s+['"]${Regex.escape(specifier)}['"]""").containsMatchIn(text)
+
     /**
      * The exported top-level symbol the caret sits on: `(name, isDefault)`, or null when the caret is
      * not on an exported declaration / specifier. Anonymous `export default` derives the name from the
@@ -193,6 +197,7 @@ object BarrelExports {
         }
         return null
     }
+
     fun planFor(componentFile: PsiFile, name: String, isDefault: Boolean, project: Project): Plan? {
         val vf = componentFile.originalFile.virtualFile ?: return null
         val componentDir = vf.parent ?: return null
@@ -205,7 +210,8 @@ object BarrelExports {
             val index = indexFileIn(dir) ?: continue
             val target = if (i == 0) vf else chain[i - 1]
             val spec = relativeSpecifier(dir, target)
-            val text = runCatching { VfsUtilCore.loadText(index) }.getOrDefault("")
+            val text = FileDocumentManager.getInstance().getDocument(index)?.text
+                ?: runCatching { VfsUtilCore.loadText(index) }.getOrDefault("")
             if (forwardsName(text, name, spec)) { exposedAsDefault = false; continue }
             if (exposedAsDefault && forwardsDefaultFrom(text, spec)) continue // keep default exposure for the parent
             val line = reExportLine(name, exposedAsDefault, spec, detectStyle(text))

@@ -74,4 +74,23 @@ class BarrelExportsPlanTest : BasePlatformTestCase() {
         val file = myFixture.addFileToProject("loose/Button.tsx", "export const Button = 1\n")
         assertNull(BarrelExports.planFor(file, "Button", false, project))
     }
+
+    fun testDefaultExportLeafExistsButEmpty() {
+        // Leaf index.ts EXISTS but is empty — does NOT already forward the default.
+        // Fix 3: planFor must plan BOTH the leaf (export { default as Button }) and the parent (export * from './Button').
+        tsconfig("""{ "compilerOptions": { "paths": { "@/*": ["./*"] } } }""")
+        myFixture.addFileToProject("package.json", """{ "name": "web" }""")
+        myFixture.addFileToProject("components/index.ts", "export * from './Other'\n")
+        // Leaf index.ts exists but is empty (does not forward the default)
+        myFixture.addFileToProject("components/Button/index.ts", "")
+        val file = myFixture.addFileToProject("components/Button/Button.tsx", "export default function Button() {}\n")
+        val plan = BarrelExports.planFor(file, "Button", true, project)
+        assertEquals(
+            listOf(
+                "Button" to "export { default as Button } from './Button'",
+                "components" to "export * from './Button'",
+            ),
+            lines(plan),
+        )
+    }
 }
