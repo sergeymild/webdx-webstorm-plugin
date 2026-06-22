@@ -40,6 +40,10 @@
             <className>com.webdx.cssmodules.CssModuleImportSymbolIntention</className>
             <category>CSS</category>
         </intentionAction>
+        <intentionAction>
+            <className>com.webdx.barrels.BarrelExportIntention</className>
+            <category>JavaScript</category>
+        </intentionAction>
         <lang.directNavigationProvider
             implementation="com.webdx.cssmodules.CssModuleDirectNavigationProvider"/>
         <postStartupActivity implementation="com.webdx.cssmodules.CssScopedStartup"/>
