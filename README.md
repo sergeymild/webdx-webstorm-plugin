@@ -29,6 +29,11 @@ Feature areas:
   plus sibling auto-import of `styles`. Source-resolved (no TS service); covers inline,
   named `export const`, and `export default StyleSheet.create({…})` objects; static
   `styles['key']` counts as a use and a dynamic `styles[`a${x}`]` access never false-flags.
+- **Barrel exports** — Alt+Enter on an exported component name re-exports it through every existing
+  `index.ts(x)` up to the auto-detected module root (`package.json` / tsconfig-alias target / highest
+  index below the `@/` source-root). Skips missing index files (adjusting the path), matches each
+  barrel's style, handles default exports (`export { default as X }`), de-dups already-wired levels,
+  and applies all edits as one undoable command. Never edits consumer files or creates index files.
 - **Dead exports / dead barrels** — greys re-exports (`export … from`) and directly-declared
   exports that no real consumer reaches through the import/re-export graph (Next.js entry
   points excluded).
@@ -306,6 +311,9 @@ src/main/kotlin/com/webdx/cssmodules/
   CssModuleDirectNavigationProvider.kt// directNavigation EP (kept; not on the TS-Go path)
   CssModuleImportSymbolIntention.kt   // Alt+Enter: @import a name-resolved SCSS symbol
   CssScopedStartup.kt                 // DIAGNOSTIC ONLY: startup + /tmp markers
+src/main/kotlin/com/webdx/barrels/
+  BarrelExports.kt                    // boundary detection, chain walk, path/form, dedup
+  BarrelExportIntention.kt            // Alt+Enter: export through barrel modules
 src/main/resources/META-INF/plugin.xml
 ```
 
@@ -356,6 +364,7 @@ The heart of the resolution logic, all on generic PSI (no TS service):
 | Overrides-imported-class inspection | `localInspection` (`language="CSS"` once — covers dialects) | `com.intellij` |
 | `styles.<class>` go-to | `<action id="GotoDeclaration" overrides="true">` (+ unused `gotoDeclarationHandler` / `lang.directNavigationProvider`) | `com.intellij` |
 | `@import` a SCSS symbol | `intentionAction` | `com.intellij` |
+| Export through barrel modules | `intentionAction` | `com.intellij` |
 | SCSS unused symbol / Find Usages / go-to | `localInspection` (CSS) + `findUsagesHandlerFactory` + `gotoDeclarationHandler` | `com.intellij` |
 | Auto-import candidate | `importCandidatesFactory` | `JavaScript` |
 | Import popup filter | `importCandidatesFilterFactory` | `JavaScript` |
@@ -598,6 +607,8 @@ and helpers return empty. Verify in a throwaway test with
 | `DeadReExportsTest` | `DeadReExports.Analyzer` reverse reachability: per-name liveness, transitive chains, cycles, `export *` source-aware liveness (named/namespace consumers, dead-among-live, re-export chains) |
 | `DeadReExportInspectionTest` | dead re-export links flagged via real highlighting; aliases, partial barrels, `require`, Next.js entry points, `export *` dead-among-live |
 | `DeadExportInspectionTest` | directly-declared exports (const/function/class, default, local `export { x as y }`, TS types) flagged when no external consumer; live/used not flagged; same-file-only use flagged; Next page default + `… from` re-export not flagged; anonymous default + multi-binding |
+| `BarrelExportsTextTest` / `…PathTest` / `…ChainTest` / `…SymbolTest` / `…PlanTest` | `BarrelExports` logic: style/line/dedup, index/source-root/module-root, chain+specifier, caret symbol, full plan (intch + muse + default + already-wired) |
+| `BarrelExportIntentionTest` | availability + apply via the real intention (intch star shape, default-export conversion; not offered in index/without barrel/already-wired/non-exported) |
 
 > **JSX PSI note:** in a `.tsx`, a `<Trans/>` element is itself a `JSLiteralExpression`
 > subtype (`JSXXmlLiteralExpression`), and the `i18nKey` value is an `XmlAttributeValue`

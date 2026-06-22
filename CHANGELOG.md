@@ -19,6 +19,20 @@ Build a distributable zip: `./gradlew buildPlugin` → `build/distributions/webd
 `BasePlatformTestCase`). All features resolve from source files, so they work on the
 tsgo engine where the TS language service doesn't load plugins.
 
+## 1.10.0 — 2026-06-22
+- **New: "Export through barrel modules" intention** (`com.webdx.barrels`). Alt+Enter on an
+  exported top-level symbol (`export const/function/class`, `export default`, local `export { X }`)
+  writes `export … from` re-exports into every existing `index.ts(x)` up the directory tree, up to
+  the auto-detected module root. The module root is the first ancestor with a `package.json` or whose
+  `index` is a tsconfig path-alias target, else the highest existing index below the source-root
+  (`@/`/`baseUrl`). Missing `index` files are skipped (never created) and the relative path is adjusted
+  accordingly (multi-segment when levels are skipped). Each line matches the target file's style
+  (quotes, semicolons, `export *` vs named); a default export uses `export { default as X }`
+  (because `export *` does not carry `default`), converting to a named re-export at the lowest level.
+  Already-wired levels are skipped (no duplicate lines); when nothing needs adding the intention is not
+  offered. Consumer files are never touched, and all edits apply as one undoable command. Source-resolved
+  (no TS service). (`BarrelExports`, `BarrelExportIntention`.)
+
 ## 1.9.2 — 2026-06-15
 - **Fix (RN): no false "unused style" on dynamic/bracket access.** `RnStyles.collectUsedKeys` only
   counted dot access + destructuring. A static `styles['key']` now counts as a use, and a
