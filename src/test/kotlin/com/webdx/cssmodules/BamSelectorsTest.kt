@@ -138,6 +138,29 @@ class BamSelectorsTest : BasePlatformTestCase() {
         assertNull(BamSelectors.bamClassForElement(element))
     }
 
+    fun testCamelCaseAmpersandConcatIsResolved() {
+        // `.arrow { &Prev { &Icon {} } }` — `&` concatenation WITHOUT a `__`/`--`
+        // separator. Resolves to `.arrowPrev` / `.arrowPrevIcon`.
+        val scss = myFixture.addFileToProject(
+            "src/Arrow.module.scss",
+            ".arrow {\n  &Prev {\n    &Icon { margin-left: 12px; }\n  }\n}",
+        )
+        assertEquals(
+            setOf("arrowPrev", "arrowPrevIcon"),
+            BamSelectors.bamClassDeclarations(scss).keys,
+        )
+    }
+
+    fun testBamClassForCamelCaseAmpersandCaret() {
+        val scss = myFixture.addFileToProject(
+            "src/Arrow.module.scss",
+            ".arrow {\n  &Prev {\n    &Icon { margin-left: 12px; }\n  }\n}",
+        )
+        val offset = scss.text.indexOf("&Prev") + 2 // inside "Prev"
+        val element = scss.findElementAt(offset)!!
+        assertEquals("arrowPrev", BamSelectors.bamClassForElement(element))
+    }
+
     fun testDescendantSelectorIsIgnored() {
         val scss = myFixture.addFileToProject(
             "src/Desc.module.scss",

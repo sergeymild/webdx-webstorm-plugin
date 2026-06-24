@@ -1,9 +1,13 @@
 package com.webdx.cssmodules
 
 import com.intellij.codeInsight.navigation.actions.GotoDeclarationAction
+import com.intellij.find.actions.ShowUsagesAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.diagnostic.logger
+import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.ui.popup.JBPopupFactory
+import com.intellij.psi.PsiElement
 import com.intellij.util.PsiNavigateUtil
 
 /**
@@ -21,6 +25,14 @@ import com.intellij.util.PsiNavigateUtil
 class CssModuleGotoDeclarationAction : GotoDeclarationAction() {
 
     private val log = logger<CssModuleGotoDeclarationAction>()
+
+    init {
+        // We register with overrides="true" against the built-in GotoDeclaration, which
+        // appears in the Main Menu. Newer platforms require non-empty action text for any
+        // menu item, so set it explicitly here to avoid an "Empty menu item text" crash
+        // when the menu is built.
+        templatePresentation.text = "Go to Declaration"
+    }
 
     override fun actionPerformed(e: AnActionEvent) {
         try {
@@ -64,17 +76,19 @@ class CssModuleGotoDeclarationAction : GotoDeclarationAction() {
                             return
                         }
                     }
-                    // CSS-module class DECLARATION (`.foo` / bam `&__x`): Cmd+Click shows its usages
-                    // (scoped Find Usages), so a class applied only dynamically (`styles[variant]`)
-                    // still has a click target — the usages popup jumps straight to the access site
-                    // when there is exactly one.
+                    // CSS-module class DECLARATION (`.foo` / bam `&__x` / camelCase `&Prev`):
+                    // Cmd+Click shows its usages (scoped Find Usages), so a class applied only
+                    // dynamically (`styles[variant]`) still has a click target — the usages popup
+                    // jumps straight to the access site when there is exactly one.
+                    //
+                    // We call startFindUsages with the caret element EXPLICITLY rather than
+                    // delegating to the ShowUsages action: a bam selector (`&Prev`, `&__x`) has no
+                    // CssClass PSI and isn't a resolvable reference, so the platform's caret->target
+                    // resolution finds nothing and the action would silently no-op. Passing the leaf
+                    // straight to our (order="first") find-usages handler sidesteps that.
                     if (CssModuleClassNavigation.isModuleClassDeclarationLeaf(element)) {
-                        val showUsages = com.intellij.openapi.actionSystem.ActionManager.getInstance()
-                            .getAction("ShowUsages")
-                        if (showUsages != null) {
-                            showUsages.actionPerformed(e)
-                            return
-                        }
+                        showUsagesFor(element, editor)
+                        return
                     }
                 }
             }
@@ -82,5 +96,15 @@ class CssModuleGotoDeclarationAction : GotoDeclarationAction() {
             log.warn("[CSS-GOTOACTION] error, delegating to default", t)
         }
         super.actionPerformed(e)
+    }
+
+    /**
+     * Opens the Show Usages popup for [element] itself — not for whatever the platform would
+     * resolve at the caret. Bam selectors (`&Prev`, `&__x`) declare a class with no CssClass
+     * PSI and no reference, so only an explicit target reaches our scoped find-usages handler.
+     */
+    private fun showUsagesFor(element: PsiElement, editor: Editor) {
+        val point = JBPopupFactory.getInstance().guessBestPopupLocation(editor)
+        ShowUsagesAction.startFindUsages(element, point, editor)
     }
 }

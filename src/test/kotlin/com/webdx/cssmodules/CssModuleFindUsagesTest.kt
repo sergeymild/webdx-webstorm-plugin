@@ -86,6 +86,27 @@ class CssModuleFindUsagesTest : BasePlatformTestCase() {
         assertEquals("usages: ${usages.map { it.element?.text }}", 2, usages.size)
     }
 
+    fun testFindsCamelCaseAmpersandConcatUsages() {
+        // `.arrow { &Prev { &Icon {} } }` — `&Prev` -> `.arrowPrev`, nested `&Icon` -> `.arrowPrevIcon`.
+        // Cmd+Click on either selector must list its `styles.*` usages in the importer.
+        val scss = myFixture.addFileToProject(
+            "Arrow.module.scss",
+            ".arrow {\n  &Prev {\n    &Icon { margin-left: 12px; }\n  }\n}",
+        )
+        myFixture.addFileToProject(
+            "Use.tsx",
+            "import styles from './Arrow.module.scss';\n" +
+                "const a = styles.arrowPrev;\nconst b = styles.arrowPrevIcon;\nconst c = styles.arrowPrevIcon;",
+        )
+        val prevOffset = scss.text.indexOf("&Prev") + 2
+        val prevUsages = myFixture.findUsages(scss.findElementAt(prevOffset)!!)
+        assertEquals("arrowPrev usages: ${prevUsages.map { it.element?.text }}", 1, prevUsages.size)
+
+        val iconOffset = scss.text.indexOf("&Icon") + 2
+        val iconUsages = myFixture.findUsages(scss.findElementAt(iconOffset)!!)
+        assertEquals("arrowPrevIcon usages: ${iconUsages.map { it.element?.text }}", 2, iconUsages.size)
+    }
+
     fun testFindsBamClassUsagesViaBracketAccess() {
         val scss = myFixture.addFileToProject(
             "Bam.module.scss",
