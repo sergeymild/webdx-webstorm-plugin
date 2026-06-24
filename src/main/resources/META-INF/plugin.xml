@@ -23,6 +23,10 @@
     <depends>JavaScript</depends>
 
     <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="WebDX"
+                    anchor="left"
+                    icon="/icons/webdx13.svg"
+                    factoryClass="com.webdx.analysis.WebdxAnalysisToolWindowFactory"/>
         <findUsagesHandlerFactory
             order="first"
             implementation="com.webdx.cssmodules.CssModuleFindUsagesHandlerFactory"/>
