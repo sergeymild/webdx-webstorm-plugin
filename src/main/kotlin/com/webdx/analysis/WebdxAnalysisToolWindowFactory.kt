@@ -5,16 +5,10 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
-import com.intellij.ui.components.JBLabel
 import com.intellij.ui.content.ContentFactory
+import com.intellij.ui.dsl.builder.panel
 import com.intellij.util.ui.JBUI
-import java.awt.BorderLayout
-import java.awt.FlowLayout
-import javax.swing.Box
-import javax.swing.BoxLayout
-import javax.swing.JButton
 import javax.swing.JComponent
-import javax.swing.JPanel
 
 /**
  * Left-stripe WebDX tool window. Its panel holds one button that runs every WebDX
@@ -29,37 +23,30 @@ class WebdxAnalysisToolWindowFactory : ToolWindowFactory {
         toolWindow.contentManager.addContent(content)
     }
 
-    /** The tool-window panel. Visible for testing. */
-    fun buildPanel(project: Project): JComponent {
-        val description = JBLabel(
-            "<html>Проверить весь проект на неиспользуемый код, " +
-                "мёртвые экспорты, неизвестные классы/ключи и т.д.</html>",
-        )
-
-        val runButton = JButton("Запустить проверку проекта").apply {
-            name = "webdx.runAnalysis"
-            addActionListener { onRun(project) }
-        }
-        val buttonRow = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply { add(runButton) }
-
-        val column = JPanel().apply {
-            layout = BoxLayout(this, BoxLayout.Y_AXIS)
-            border = JBUI.Borders.empty(10)
-            add(description)
-            add(Box.createVerticalStrut(JBUI.scale(10)))
-            add(buttonRow)
-        }
-
-        // Top-align the column so the button doesn't get centered in a tall tool window.
-        return JPanel(BorderLayout()).apply { add(column, BorderLayout.NORTH) }
-    }
+    /**
+     * The tool-window panel. Built with the platform UI DSL so the description and button
+     * stay top-left aligned and the text wraps to the tool-window width. Visible for testing.
+     */
+    fun buildPanel(project: Project): JComponent =
+        panel {
+            row {
+                text(
+                    "Scan the whole project for unused code, dead exports, " +
+                        "and unknown CSS classes / translation keys.",
+                )
+            }
+            row {
+                button("Run Project Analysis") { onRun(project) }
+                    .applyToComponent { name = "webdx.runAnalysis" }
+            }
+        }.apply { border = JBUI.Borders.empty(10) }
 
     private fun onRun(project: Project) {
         if (DumbService.getInstance(project).isDumb) {
             Messages.showInfoMessage(
                 project,
-                "Дождитесь окончания индексации проекта и попробуйте снова.",
-                "WebDX: индексация",
+                "Wait for project indexing to finish and try again.",
+                "WebDX",
             )
             return
         }

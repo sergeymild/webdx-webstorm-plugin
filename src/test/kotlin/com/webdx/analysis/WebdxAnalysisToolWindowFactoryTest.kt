@@ -3,7 +3,6 @@ package com.webdx.analysis
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import java.awt.Container
 import javax.swing.JButton
-import javax.swing.JComponent
 
 class WebdxAnalysisToolWindowFactoryTest : BasePlatformTestCase() {
 
@@ -12,6 +11,7 @@ class WebdxAnalysisToolWindowFactoryTest : BasePlatformTestCase() {
         val button = findButton(panel)
         assertNotNull("panel must contain the run button", button)
         assertEquals("webdx.runAnalysis", button!!.name)
+        assertEquals("Run Project Analysis", button.text)
     }
 
     private fun findButton(c: Container): JButton? {
