@@ -19,6 +19,11 @@ Build a distributable zip: `./gradlew buildPlugin` → `build/distributions/webd
 `BasePlatformTestCase`). All features resolve from source files, so they work on the
 tsgo engine where the TS language service doesn't load plugins.
 
+## [Unreleased]
+### Added
+- Project-wide analysis tool window: a left-stripe WebDX button runs all plugin
+  inspections over the whole project; findings show in the standard Inspection Results window.
+
 ## 1.10.0 — 2026-06-22
 - **New: "Export through barrel modules" intention** (`com.webdx.barrels`). Alt+Enter on an
   exported top-level symbol (`export const/function/class`, `export default`, local `export { X }`)

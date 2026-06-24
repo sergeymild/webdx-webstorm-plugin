@@ -34,6 +34,10 @@ Feature areas:
   index below the `@/` source-root). Skips missing index files (adjusting the path), matches each
   barrel's style, handles default exports (`export { default as X }`), de-dups already-wired levels,
   and applies all edits as one undoable command. Never edits consumer files or creates index files.
+- **Project-wide analysis** — a WebDX button in the left tool-window stripe runs every
+  plugin inspection (unused CSS-module classes, unused SCSS symbols, unused RN keys,
+  dead exports/re-exports, plus the unknown-class/key and i18n checks) across the whole
+  project in one pass; results open in the standard Inspection Results window.
 - **Dead exports / dead barrels** — greys re-exports (`export … from`) and directly-declared
   exports that no real consumer reaches through the import/re-export graph (Next.js entry
   points excluded).
