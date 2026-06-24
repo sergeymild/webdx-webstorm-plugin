@@ -14,6 +14,9 @@ import com.intellij.psi.PsiElementVisitor
  */
 class DeadReExportInspection : LocalInspectionTool() {
 
+    override fun getStaticDescription(): String =
+        "A re-export that no consumer reaches through the project's import graph."
+
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         val moduleFile = holder.file.originalFile
         if (NextEntryPoints.isEntryPoint(moduleFile)) return PsiElementVisitor.EMPTY_VISITOR

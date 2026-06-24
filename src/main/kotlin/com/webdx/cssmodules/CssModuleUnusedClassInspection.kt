@@ -13,6 +13,9 @@ import com.intellij.psi.css.CssClass
  */
 class CssModuleUnusedClassInspection : LocalInspectionTool() {
 
+    override fun getStaticDescription(): String =
+        "A class declared in a CSS module that is never referenced via a styles.* access in any importing file."
+
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         val file = holder.file
         if (!CssModules.isModuleFileName(file.name)) return PsiElementVisitor.EMPTY_VISITOR

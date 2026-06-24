@@ -9,6 +9,9 @@ import com.intellij.psi.PsiElementVisitor
 /** Warns when a `t('...')` / `<Trans i18nKey>` key is not present in the locale JSON. */
 class I18nUnknownKeyInspection : LocalInspectionTool() {
 
+    override fun getStaticDescription(): String =
+        "A translation key passed to t() or Trans that is absent from the locale JSON."
+
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         return object : PsiElementVisitor() {
             override fun visitElement(element: PsiElement) {

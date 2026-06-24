@@ -74,28 +74,28 @@
         <completion.contributor language="JSX Harmony" id="rnStyleImportJsx"
             implementationClass="com.webdx.rnstyles.RnStyleImportCompletion"/>
 
-        <localInspection language="SCSS"
+        <localInspection hasStaticDescription="true" language="SCSS"
             shortName="CssModuleUnusedClass"
             displayName="Unused CSS module class"
             groupName="CSS"
             enabledByDefault="true"
             level="WARNING"
             implementationClass="com.webdx.cssmodules.CssModuleUnusedClassInspection"/>
-        <localInspection language="SASS"
+        <localInspection hasStaticDescription="true" language="SASS"
             shortName="CssModuleUnusedClassSass"
             displayName="Unused CSS module class"
             groupName="CSS"
             enabledByDefault="true"
             level="WARNING"
             implementationClass="com.webdx.cssmodules.CssModuleUnusedClassInspection"/>
-        <localInspection language="LESS"
+        <localInspection hasStaticDescription="true" language="LESS"
             shortName="CssModuleUnusedClassLess"
             displayName="Unused CSS module class"
             groupName="CSS"
             enabledByDefault="true"
             level="WARNING"
             implementationClass="com.webdx.cssmodules.CssModuleUnusedClassInspection"/>
-        <localInspection language="CSS"
+        <localInspection hasStaticDescription="true" language="CSS"
             shortName="CssModuleUnusedClassCss"
             displayName="Unused CSS module class"
             groupName="CSS"
@@ -106,144 +106,144 @@
         <!-- Register once on CSS only: SCSS/SASS/LESS are dialects of CSS, so a single
              CSS registration matches each file exactly once. Registering per-dialect
              made .scss match SCSS+SASS+CSS and fire the warning three times. -->
-        <localInspection language="CSS"
+        <localInspection hasStaticDescription="true" language="CSS"
             shortName="ScssUnusedSymbol"
             displayName="Unused SCSS symbol"
             groupName="CSS"
             enabledByDefault="true"
             level="WARNING"
             implementationClass="com.webdx.scsssymbols.ScssUnusedSymbolInspection"/>
-        <localInspection language="CSS"
+        <localInspection hasStaticDescription="true" language="CSS"
             shortName="CssModuleOverrideClass"
             displayName="CSS module class overrides imported class"
             groupName="CSS" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.cssmodules.CssModuleOverrideClassInspection"/>
 
-        <localInspection language="TypeScript JSX"
+        <localInspection hasStaticDescription="true" language="TypeScript JSX"
             shortName="CssModuleUnknownClassTsx"
             displayName="Unknown CSS module class"
             groupName="CSS" enabledByDefault="true" level="ERROR"
             implementationClass="com.webdx.cssmodules.CssModuleUnknownClassInspection"/>
-        <localInspection language="TypeScript"
+        <localInspection hasStaticDescription="true" language="TypeScript"
             shortName="CssModuleUnknownClassTs"
             displayName="Unknown CSS module class"
             groupName="CSS" enabledByDefault="true" level="ERROR"
             implementationClass="com.webdx.cssmodules.CssModuleUnknownClassInspection"/>
-        <localInspection language="JavaScript"
+        <localInspection hasStaticDescription="true" language="JavaScript"
             shortName="CssModuleUnknownClassJs"
             displayName="Unknown CSS module class"
             groupName="CSS" enabledByDefault="true" level="ERROR"
             implementationClass="com.webdx.cssmodules.CssModuleUnknownClassInspection"/>
-        <localInspection language="ECMAScript 6"
+        <localInspection hasStaticDescription="true" language="ECMAScript 6"
             shortName="CssModuleUnknownClassEs6"
             displayName="Unknown CSS module class"
             groupName="CSS" enabledByDefault="true" level="ERROR"
             implementationClass="com.webdx.cssmodules.CssModuleUnknownClassInspection"/>
-        <localInspection language="JSX Harmony"
+        <localInspection hasStaticDescription="true" language="JSX Harmony"
             shortName="CssModuleUnknownClassJsx"
             displayName="Unknown CSS module class"
             groupName="CSS" enabledByDefault="true" level="ERROR"
             implementationClass="com.webdx.cssmodules.CssModuleUnknownClassInspection"/>
 
         <!-- groupName="JavaScript": these run on JS/TS sources (like the i18n inspections), not CSS files. -->
-        <localInspection language="TypeScript JSX"
+        <localInspection hasStaticDescription="true" language="TypeScript JSX"
             shortName="RnStyleUnknownKeyTsx"
             displayName="Unknown React Native style key"
             groupName="JavaScript" enabledByDefault="true" level="ERROR"
             implementationClass="com.webdx.rnstyles.RnStyleUnknownKeyInspection"/>
-        <localInspection language="TypeScript"
+        <localInspection hasStaticDescription="true" language="TypeScript"
             shortName="RnStyleUnknownKeyTs"
             displayName="Unknown React Native style key"
             groupName="JavaScript" enabledByDefault="true" level="ERROR"
             implementationClass="com.webdx.rnstyles.RnStyleUnknownKeyInspection"/>
-        <localInspection language="JavaScript"
+        <localInspection hasStaticDescription="true" language="JavaScript"
             shortName="RnStyleUnknownKeyJs"
             displayName="Unknown React Native style key"
             groupName="JavaScript" enabledByDefault="true" level="ERROR"
             implementationClass="com.webdx.rnstyles.RnStyleUnknownKeyInspection"/>
-        <localInspection language="ECMAScript 6"
+        <localInspection hasStaticDescription="true" language="ECMAScript 6"
             shortName="RnStyleUnknownKeyEs6"
             displayName="Unknown React Native style key"
             groupName="JavaScript" enabledByDefault="true" level="ERROR"
             implementationClass="com.webdx.rnstyles.RnStyleUnknownKeyInspection"/>
-        <localInspection language="JSX Harmony"
+        <localInspection hasStaticDescription="true" language="JSX Harmony"
             shortName="RnStyleUnknownKeyJsx"
             displayName="Unknown React Native style key"
             groupName="JavaScript" enabledByDefault="true" level="ERROR"
             implementationClass="com.webdx.rnstyles.RnStyleUnknownKeyInspection"/>
 
-        <localInspection language="TypeScript JSX"
+        <localInspection hasStaticDescription="true" language="TypeScript JSX"
             shortName="RnStyleUnusedKeyTsx"
             displayName="Unused React Native style key"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.rnstyles.RnStyleUnusedKeyInspection"/>
-        <localInspection language="TypeScript"
+        <localInspection hasStaticDescription="true" language="TypeScript"
             shortName="RnStyleUnusedKeyTs"
             displayName="Unused React Native style key"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.rnstyles.RnStyleUnusedKeyInspection"/>
-        <localInspection language="JavaScript"
+        <localInspection hasStaticDescription="true" language="JavaScript"
             shortName="RnStyleUnusedKeyJs"
             displayName="Unused React Native style key"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.rnstyles.RnStyleUnusedKeyInspection"/>
-        <localInspection language="ECMAScript 6"
+        <localInspection hasStaticDescription="true" language="ECMAScript 6"
             shortName="RnStyleUnusedKeyEs6"
             displayName="Unused React Native style key"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.rnstyles.RnStyleUnusedKeyInspection"/>
-        <localInspection language="JSX Harmony"
+        <localInspection hasStaticDescription="true" language="JSX Harmony"
             shortName="RnStyleUnusedKeyJsx"
             displayName="Unused React Native style key"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.rnstyles.RnStyleUnusedKeyInspection"/>
 
-        <localInspection language="TypeScript JSX"
+        <localInspection hasStaticDescription="true" language="TypeScript JSX"
             shortName="DeadReExportTsx"
             displayName="Dead re-export (unused barrel link)"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.deadexports.DeadReExportInspection"/>
-        <localInspection language="TypeScript"
+        <localInspection hasStaticDescription="true" language="TypeScript"
             shortName="DeadReExportTs"
             displayName="Dead re-export (unused barrel link)"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.deadexports.DeadReExportInspection"/>
-        <localInspection language="JavaScript"
+        <localInspection hasStaticDescription="true" language="JavaScript"
             shortName="DeadReExportJs"
             displayName="Dead re-export (unused barrel link)"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.deadexports.DeadReExportInspection"/>
-        <localInspection language="ECMAScript 6"
+        <localInspection hasStaticDescription="true" language="ECMAScript 6"
             shortName="DeadReExportEs6"
             displayName="Dead re-export (unused barrel link)"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.deadexports.DeadReExportInspection"/>
-        <localInspection language="JSX Harmony"
+        <localInspection hasStaticDescription="true" language="JSX Harmony"
             shortName="DeadReExportJsxHarmony"
             displayName="Dead re-export (unused barrel link)"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.deadexports.DeadReExportInspection"/>
-        <localInspection language="TypeScript JSX"
+        <localInspection hasStaticDescription="true" language="TypeScript JSX"
             shortName="DeadExportTsx"
             displayName="Unused export (no consumer reaches it)"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.deadexports.DeadExportInspection"/>
-        <localInspection language="TypeScript"
+        <localInspection hasStaticDescription="true" language="TypeScript"
             shortName="DeadExportTs"
             displayName="Unused export (no consumer reaches it)"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.deadexports.DeadExportInspection"/>
-        <localInspection language="JavaScript"
+        <localInspection hasStaticDescription="true" language="JavaScript"
             shortName="DeadExportJs"
             displayName="Unused export (no consumer reaches it)"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.deadexports.DeadExportInspection"/>
-        <localInspection language="ECMAScript 6"
+        <localInspection hasStaticDescription="true" language="ECMAScript 6"
             shortName="DeadExportEs6"
             displayName="Unused export (no consumer reaches it)"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.deadexports.DeadExportInspection"/>
-        <localInspection language="JSX Harmony"
+        <localInspection hasStaticDescription="true" language="JSX Harmony"
             shortName="DeadExportJsxHarmony"
             displayName="Unused export (no consumer reaches it)"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
@@ -266,53 +266,53 @@
             order="first"
             implementation="com.webdx.i18n.I18nKeyFindUsagesHandlerFactory"/>
 
-        <localInspection language="TypeScript JSX"
+        <localInspection hasStaticDescription="true" language="TypeScript JSX"
             shortName="I18nUnknownKeyTsx"
             displayName="Unknown i18n translation key"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.i18n.I18nUnknownKeyInspection"/>
-        <localInspection language="TypeScript"
+        <localInspection hasStaticDescription="true" language="TypeScript"
             shortName="I18nUnknownKeyTs"
             displayName="Unknown i18n translation key"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.i18n.I18nUnknownKeyInspection"/>
-        <localInspection language="JavaScript"
+        <localInspection hasStaticDescription="true" language="JavaScript"
             shortName="I18nUnknownKeyJs"
             displayName="Unknown i18n translation key"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.i18n.I18nUnknownKeyInspection"/>
-        <localInspection language="ECMAScript 6"
+        <localInspection hasStaticDescription="true" language="ECMAScript 6"
             shortName="I18nUnknownKeyEs6"
             displayName="Unknown i18n translation key"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.i18n.I18nUnknownKeyInspection"/>
-        <localInspection language="JSX Harmony"
+        <localInspection hasStaticDescription="true" language="JSX Harmony"
             shortName="I18nUnknownKeyJsx"
             displayName="Unknown i18n translation key"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.i18n.I18nUnknownKeyInspection"/>
 
-        <localInspection language="TypeScript JSX"
+        <localInspection hasStaticDescription="true" language="TypeScript JSX"
             shortName="I18nInterpolationTsx"
             displayName="i18n interpolation variables"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.i18n.I18nInterpolationInspection"/>
-        <localInspection language="TypeScript"
+        <localInspection hasStaticDescription="true" language="TypeScript"
             shortName="I18nInterpolationTs"
             displayName="i18n interpolation variables"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.i18n.I18nInterpolationInspection"/>
-        <localInspection language="JavaScript"
+        <localInspection hasStaticDescription="true" language="JavaScript"
             shortName="I18nInterpolationJs"
             displayName="i18n interpolation variables"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.i18n.I18nInterpolationInspection"/>
-        <localInspection language="ECMAScript 6"
+        <localInspection hasStaticDescription="true" language="ECMAScript 6"
             shortName="I18nInterpolationEs6"
             displayName="i18n interpolation variables"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"
             implementationClass="com.webdx.i18n.I18nInterpolationInspection"/>
-        <localInspection language="JSX Harmony"
+        <localInspection hasStaticDescription="true" language="JSX Harmony"
             shortName="I18nInterpolationJsx"
             displayName="i18n interpolation variables"
             groupName="JavaScript" enabledByDefault="true" level="WARNING"

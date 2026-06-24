@@ -55,4 +55,23 @@ class WebdxInspectionRunnerTest : BasePlatformTestCase() {
             state.tool.tool::class.java.name,
         )
     }
+
+    fun testEveryWebdxInspectionHasDescription() {
+        // The batch Inspection Results view calls InspectionToolWrapper.loadDescription() when
+        // a result node is selected and throws "Inspection #X has no description" if it is
+        // blank. On-the-fly per-file inspection never needs a description, so this only
+        // surfaces through our project-wide run. Every WebDX inspection must supply one.
+        val profile = WebdxInspectionRunner.buildProfile(project)
+        val missing = profile.allTools
+            .filter {
+                it.isEnabled && it.tool.tool::class.java.name.startsWith(WebdxInspectionRunner.PACKAGE_PREFIX)
+            }
+            .filter { it.tool.loadDescription().isNullOrBlank() }
+            .map { it.tool.shortName }
+            .toSortedSet()
+        assertTrue(
+            "WebDX inspections with no description (crash the Inspection Results view): $missing",
+            missing.isEmpty(),
+        )
+    }
 }

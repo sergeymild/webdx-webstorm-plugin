@@ -16,6 +16,9 @@ import com.webdx.cssmodules.CssModules
  */
 class RnStyleUnusedKeyInspection : LocalInspectionTool() {
 
+    override fun getStaticDescription(): String =
+        "A React Native StyleSheet key that is never referenced."
+
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         val file = holder.file
         if (!CssModules.isJsLikeFileName(file.name)) return PsiElementVisitor.EMPTY_VISITOR
