@@ -93,8 +93,11 @@ button stays visible; the panel is intentionally minimal but leaves room to grow
 - **EDT:** the button click runs on the EDT, which is what `doInspections` requires.
 - **Dumb mode:** while indexing is in progress, disable the button (or no-op with a
   message) — the inspections rely on indexes/PSI; running mid-index is unreliable.
-- **Re-entry:** guard against a second run while one is in progress (track the active
-  context / disable the button until it finishes).
+- **Re-entry:** no hard lock. `doInspections` runs asynchronously and the platform's
+  own "Inspect Code" allows overlapping runs (each opens a new results tab); we match
+  that. A completion-driven button lock would require subclassing
+  `GlobalInspectionContextImpl` (its only completion hook, `notifyInspectionsFinished`,
+  is `protected`) and re-wiring its content manager — out of scope for MVP.
 - **No user-profile mutation:** we build and use a throwaway profile; the user's
   selected profile and settings are untouched, and nothing is written to disk.
 - **Silent inspections:** inspections that stay silent when their context is
