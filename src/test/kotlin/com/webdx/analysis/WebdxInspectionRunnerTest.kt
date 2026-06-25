@@ -56,6 +56,38 @@ class WebdxInspectionRunnerTest : BasePlatformTestCase() {
         )
     }
 
+    fun testSelectorEnablesOnlyMatchingInspection() {
+        val target = "com.webdx.cssmodules.CssModuleUnusedClassInspection"
+        val profile = WebdxInspectionRunner.buildProfile(project) { it == target }
+        val enabled = profile.allTools.filter { it.isEnabled }
+
+        assertTrue("expected the selected inspection's registrations to be enabled", enabled.isNotEmpty())
+        assertTrue(
+            "selector leaked other inspections: ${enabled.map { it.tool.tool::class.java.name }.toSet()}",
+            enabled.all { it.tool.tool::class.java.name == target },
+        )
+        // A sibling inspection in the same package must stay disabled.
+        val override = profile.allTools.single { it.tool.shortName == "CssModuleOverrideClass" }
+        assertFalse("non-selected inspection must be disabled", override.isEnabled)
+    }
+
+    fun testEveryCatalogedAnalysisMatchesARegisteredInspection() {
+        // Guards the ANALYSES catalog against implementation-class FQN typos: every label must map
+        // to an inspection the platform actually registers, otherwise its button would silently
+        // run nothing.
+        val profile = WebdxInspectionRunner.buildProfile(project)
+        val enabledClasses = profile.allTools
+            .filter { it.isEnabled }
+            .map { it.tool.tool::class.java.name }
+            .toSet()
+        for (analysis in WebdxInspectionRunner.ANALYSES) {
+            assertTrue(
+                "catalog entry '${analysis.label}' -> ${analysis.inspectionClass} matches no registered inspection",
+                enabledClasses.contains(analysis.inspectionClass),
+            )
+        }
+    }
+
     fun testEveryWebdxInspectionHasDescription() {
         // The batch Inspection Results view calls InspectionToolWrapper.loadDescription() when
         // a result node is selected and throws "Inspection #X has no description" if it is

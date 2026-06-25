@@ -1,41 +1,51 @@
 package com.webdx.analysis
 
-import com.intellij.analysis.AnalysisScope
-import com.intellij.codeInspection.InspectionManager
-import com.intellij.codeInspection.ex.InspectionManagerEx
 import com.intellij.codeInspection.ex.InspectionProfileImpl
 import com.intellij.codeInspection.ex.InspectionToolRegistrar
-import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.Project
 import com.intellij.profile.codeInspection.ProjectInspectionProfileManager
 
+/** One runnable analysis: a user-facing label and the inspection it enables. */
+data class WebdxAnalysis(val label: String, val inspectionClass: String)
+
 /**
- * Runs every inspection THIS plugin registers across the whole project, in one pass,
- * and shows the findings in the platform's standard Inspection Results tool window.
+ * Builds in-memory inspection profiles scoped to THIS plugin's inspections.
  *
- * The inspection set is selected by implementation-class package (`com.webdx.`), so it
- * automatically covers all per-language registrations of each inspection and any
- * inspection added later — without a hard-coded shortName list. The profile is built
- * in memory and never replaces or mutates the user's real profile.
+ * Inspections are selected by implementation-class FQN, so each entry automatically
+ * covers all per-language registrations of that inspection. A run can enable every
+ * WebDX inspection (the "Run all" button) or just one (a per-category button). The
+ * profile is built in memory and never replaces or mutates the user's real profile.
  */
 object WebdxInspectionRunner {
 
     const val PACKAGE_PREFIX = "com.webdx."
 
-    private val log = logger<WebdxInspectionRunner>()
+    /**
+     * The individually runnable analyses, in display order. Each maps to one inspection
+     * implementation class; "Run all" enables every WebDX inspection regardless of this list.
+     */
+    val ANALYSES: List<WebdxAnalysis> = listOf(
+        WebdxAnalysis("Unused CSS classes", "com.webdx.cssmodules.CssModuleUnusedClassInspection"),
+        WebdxAnalysis("Unknown CSS classes", "com.webdx.cssmodules.CssModuleUnknownClassInspection"),
+        WebdxAnalysis("CSS class overrides", "com.webdx.cssmodules.CssModuleOverrideClassInspection"),
+        WebdxAnalysis("Unused SCSS symbols", "com.webdx.scsssymbols.ScssUnusedSymbolInspection"),
+        WebdxAnalysis("Unknown RN style keys", "com.webdx.rnstyles.RnStyleUnknownKeyInspection"),
+        WebdxAnalysis("Unused RN style keys", "com.webdx.rnstyles.RnStyleUnusedKeyInspection"),
+        WebdxAnalysis("Dead exports", "com.webdx.deadexports.DeadExportInspection"),
+        WebdxAnalysis("Dead re-exports", "com.webdx.deadexports.DeadReExportInspection"),
+        WebdxAnalysis("Unknown i18n keys", "com.webdx.i18n.I18nUnknownKeyInspection"),
+        WebdxAnalysis("i18n interpolation issues", "com.webdx.i18n.I18nInterpolationInspection"),
+    )
 
-    /** Launch the project-wide run; results land in the standard Inspection Results window. */
-    fun runAll(project: Project) {
-        val profile = buildProfile(project)
-        val managerEx = InspectionManager.getInstance(project) as InspectionManagerEx
-        val context = managerEx.createNewGlobalContext()
-        context.setExternalProfile(profile)
-        log.info("[WEBDX-ANALYSIS] running ${profile.allTools.count { it.isEnabled }} inspection(s) over the project")
-        context.doInspections(AnalysisScope(project))
-    }
-
-    /** In-memory profile with ONLY this plugin's inspections enabled. Visible for testing. */
-    fun buildProfile(project: Project): InspectionProfileImpl {
+    /**
+     * In-memory profile enabling the WebDX inspections whose implementation-class FQN matches
+     * [selector]. The default selector enables every WebDX inspection ("Run all"). Visible for
+     * testing.
+     */
+    fun buildProfile(
+        project: Project,
+        selector: (String) -> Boolean = { true },
+    ): InspectionProfileImpl {
         val profileManager = ProjectInspectionProfileManager.getInstance(project)
         val profile = InspectionProfileImpl(
             "WebDX project analysis",
@@ -46,7 +56,8 @@ object WebdxInspectionRunner {
         profile.disableAllTools(project)
         for (state in profile.allTools) {
             val wrapper = state.tool
-            if (wrapper.tool::class.java.name.startsWith(PACKAGE_PREFIX)) {
+            val className = wrapper.tool::class.java.name
+            if (className.startsWith(PACKAGE_PREFIX) && selector(className)) {
                 profile.setToolEnabled(wrapper.shortName, true, project)
             }
         }

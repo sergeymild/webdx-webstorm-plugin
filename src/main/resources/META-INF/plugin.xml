@@ -27,6 +27,7 @@
                     anchor="left"
                     icon="/icons/webdx13.svg"
                     factoryClass="com.webdx.analysis.WebdxAnalysisToolWindowFactory"/>
+        <notificationGroup id="WebDX Analysis" displayType="BALLOON"/>
         <findUsagesHandlerFactory
             order="first"
             implementation="com.webdx.cssmodules.CssModuleFindUsagesHandlerFactory"/>
