@@ -19,6 +19,15 @@ Build a distributable zip: `./gradlew buildPlugin` → `build/distributions/webd
 `BasePlatformTestCase`). All features resolve from source files, so they work on the
 tsgo engine where the TS language service doesn't load plugins.
 
+## 1.11.2 — 2026-06-25
+### Fixed
+- **Tool-window stripe icon stayed grey when selected.** The icon used custom greys
+  (`#6E6E6E` / `#AFB1B3`) the platform's icon patcher doesn't recognise, so it wasn't recoloured to
+  white on the selected (highlighted) stripe button. Switched to WebStorm's standard tool-window
+  palette colours — `#6C707E` (`Gray6`, light theme) and `#CED0D6` (`Gray11`, dark theme, via the
+  `_dark` variant) — the same values JetBrains' own tool-window icons use. The platform now picks the
+  right file per theme and recolours the icon to white when the tool window is selected.
+
 ## 1.11.1 — 2026-06-25
 ### Fixed
 - **Duplicate inspection warnings.** Every inspection was registered once per JS/TS dialect
