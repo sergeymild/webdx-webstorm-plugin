@@ -19,10 +19,30 @@ Build a distributable zip: `./gradlew buildPlugin` → `build/distributions/webd
 `BasePlatformTestCase`). All features resolve from source files, so they work on the
 tsgo engine where the TS language service doesn't load plugins.
 
-## [Unreleased]
+## 1.11.0 — 2026-06-25
 ### Added
-- Project-wide analysis tool window: a left-stripe WebDX button runs all plugin
-  inspections over the whole project; findings show in the standard Inspection Results window.
+- **Project-wide analysis tool window** (`com.webdx.analysis`). A WebDX button in the left
+  tool-window stripe opens a panel with one **Run** button per inspection family (unused
+  CSS-module classes, unknown CSS classes, CSS class overrides, unused SCSS symbols,
+  unknown/unused RN style keys, dead exports, dead re-exports, unknown i18n keys, i18n
+  interpolation), plus **Run all analysis** and a **Stop** button. Each button enables only the
+  matching inspection(s) (selected by implementation class, so all per-language registrations are
+  covered) in an in-memory profile that never touches the user's real profile, then runs the whole
+  project through the platform's standard `doInspections` pipeline — the same entry point as
+  "Inspect Code" — so the scan is fully cancellable and findings open in the standard Inspection
+  Results window. The button column tracks the tool-window width (no horizontal scrollbar) and run
+  buttons disable while a scan is in progress. (`WebdxInspectionRunner`, `WebdxAnalysisRunController`,
+  `WebdxAnalysisToolWindowFactory`.)
+- Every WebDX inspection now supplies a static description (`hasStaticDescription` +
+  `getStaticDescription()`), so selecting a result node in the batch Inspection Results view no
+  longer throws "Inspection #X has no description".
+
+### Fixed
+- **Show Usages from SCSS class declarations.** Clicking Go-to-Declaration on a bam/camelCase
+  ampersand selector (`&Prev`, `&Icon`) in a `*.module.scss` now finds its usages in code (the
+  caret had no resolvable CSS reference, so the built-in re-resolve failed); it now starts Find
+  Usages from the resolved element directly. Also fixed an "Empty menu item text" crash from the
+  Go-to-Declaration override by giving it template-presentation text.
 
 ## 1.10.0 — 2026-06-22
 - **New: "Export through barrel modules" intention** (`com.webdx.barrels`). Alt+Enter on an
