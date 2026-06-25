@@ -19,6 +19,17 @@ Build a distributable zip: `./gradlew buildPlugin` → `build/distributions/webd
 `BasePlatformTestCase`). All features resolve from source files, so they work on the
 tsgo engine where the TS language service doesn't load plugins.
 
+## 1.11.1 — 2026-06-25
+### Fixed
+- **Duplicate inspection warnings.** Every inspection was registered once per JS/TS dialect
+  (`JavaScript` + `TypeScript` + `TypeScript JSX` + `ECMAScript 6` + `JSX Harmony`) and once per
+  CSS dialect (`SCSS`/`SASS`/`LESS`/`CSS`). Because `localInspection` applies to dialects by
+  default, those registrations overlapped and the same problem (e.g. "Unknown interpolation
+  variable …") showed up to four times on one element. Each inspection is now registered once on its
+  base language (`JavaScript` or `CSS`), which still covers every dialect but matches each file
+  exactly once. A regression test asserts no implementation class is registered more than once. The
+  surviving short names dropped their language suffix (e.g. `DeadExportTsx` → `DeadExport`).
+
 ## 1.11.0 — 2026-06-25
 ### Added
 - **Project-wide analysis tool window** (`com.webdx.analysis`). A WebDX button in the left

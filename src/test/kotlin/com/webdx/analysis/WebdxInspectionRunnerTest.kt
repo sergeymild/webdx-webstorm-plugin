@@ -39,7 +39,7 @@ class WebdxInspectionRunnerTest : BasePlatformTestCase() {
         val enabledShortNames = profile.allTools.filter { it.isEnabled }.map { it.tool.shortName }.toSet()
 
         // A representative tool from each unused/dead family must be enabled.
-        for (name in listOf("CssModuleUnusedClass", "ScssUnusedSymbol", "DeadExportTsx", "DeadReExportTsx")) {
+        for (name in listOf("CssModuleUnusedClass", "ScssUnusedSymbol", "DeadExport", "DeadReExport")) {
             assertTrue("expected '$name' enabled, got $enabledShortNames", enabledShortNames.contains(name))
         }
     }
@@ -69,6 +69,25 @@ class WebdxInspectionRunnerTest : BasePlatformTestCase() {
         // A sibling inspection in the same package must stay disabled.
         val override = profile.allTools.single { it.tool.shortName == "CssModuleOverrideClass" }
         assertFalse("non-selected inspection must be disabled", override.isEnabled)
+    }
+
+    fun testEachWebdxInspectionIsRegisteredOnce() {
+        // Each inspection implementation must be registered exactly once. Registering the same
+        // class under several overlapping languages (e.g. JavaScript + TypeScript + TypeScript JSX,
+        // which are all dialects) makes a single file match multiple tools and shows the same
+        // warning several times. localInspection applies to dialects by default, so one base-language
+        // registration (JavaScript for JS/TS, CSS for SCSS/SASS/LESS) covers every file once.
+        val profile = WebdxInspectionRunner.buildProfile(project)
+        val byClass = profile.allTools
+            .filter { it.tool.tool::class.java.name.startsWith(WebdxInspectionRunner.PACKAGE_PREFIX) }
+            .groupBy { it.tool.tool::class.java.name }
+        val duplicated = byClass
+            .filter { (_, tools) -> tools.size > 1 }
+            .mapValues { (_, tools) -> tools.map { it.tool.shortName }.sorted() }
+        assertTrue(
+            "inspections registered more than once (duplicate warnings per file): $duplicated",
+            duplicated.isEmpty(),
+        )
     }
 
     fun testEveryCatalogedAnalysisMatchesARegisteredInspection() {
