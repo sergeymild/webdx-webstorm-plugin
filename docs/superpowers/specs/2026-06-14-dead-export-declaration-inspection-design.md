@@ -33,17 +33,32 @@ right element (declaration name vs re-export specifier).
 
 ## Liveness rule
 
-A directly-declared export named `N` in module file `F` is **live** iff `analyzer.isLive(F, N)` —
-the same reverse reachability that powers re-export flagging: some real (non-re-export) consumer
-reaches `N` through the import / re-export graph, directly or transitively through barrels.
+Two reachability questions on `analyzer`, both reverse reachability over the import / re-export
+graph (the same machinery that powers re-export flagging):
 
-Chosen semantics: **"no external consumer = unused."** `isLive(F, N)` searches references to the
-*module file*; same-file references (another local symbol, or `SomeFun.displayName = 'SomeFun'`) are
-not file references, so they do not keep the export alive. Consequences:
+- `isExternallyLive(F, N)` — some real (non-re-export) consumer reaches `N` through the import /
+  re-export graph (directly or transitively through barrels). Searches references to the *module
+  file*, so same-file references never count. Answers **"is the `export` keyword needed?"**
+- `isLive(F, N)` — `isExternallyLive`, OR `N`'s declared symbol is referenced *within `F`* by
+  another export `M` that is itself live (recursively, excluding self-references). Answers **"is the
+  symbol used at all?"** The same-file symbol is found by scanning `F` (not cross-module resolution,
+  which follows `… from` chains and overflows the IDE resolver on cyclic barrels).
 
-- `SomeFun` / `Some` above → only ref is the dead barrel `export *` → not live → flagged. ✓
-- A symbol used only internally by another (exported, externally consumed) symbol is flagged too:
-  its `export` is redundant and could be made local. This is intended, not a false positive.
+Three outcomes for a declared export `N`:
+
+| `isExternallyLive` | `isLive` | Verdict |
+|---|---|---|
+| true | — | needed externally → nothing |
+| false | true | alive but only used in-file → **redundant-export warning** (make it local) |
+| false | false | unreached anywhere → greyed unused |
+
+Consequences:
+
+- `SomeFun` / `Some` (only ref is a dead barrel `export *`; `SomeFun.displayName` is a self-ref) →
+  not live → greyed unused. ✓
+- `Inner` referenced only by an externally-consumed `Outer` (`Outer.inner: Inner`) → alive, export
+  redundant → **warning**, not greyed. ✓ (was previously greyed — the motivating fix.)
+- `helper` referenced only by a *dead* sibling → both stay greyed unused. ✓
 
 ## What the visitor flags
 
@@ -59,8 +74,11 @@ Only in module files, only when the symbol **is exported** (`ES6ImportHandler.is
 `export const A = 1, B = 2` is queried per binding, each anchored on its own name identifier.
 
 - **Anchor:** the exported symbol's name identifier (fall back to the declaration element).
-- **Message:** `"Export '<name>' is never used (no consumer reaches it)"`,
-  `ProblemHighlightType.LIKE_UNUSED_SYMBOL`.
+- **Messages / highlight** (per the table above):
+  - unreached → `"Export '<name>' is never used (no consumer reaches it)"`,
+    `ProblemHighlightType.LIKE_UNUSED_SYMBOL`.
+  - used only in-file → `"Export '<name>' is only used in this file; 'export' is redundant (can be
+    made local)"`, `ProblemHighlightType.WARNING`.
 
 ## Enumerating exported names
 
@@ -103,7 +121,10 @@ Inspection-level (`DeadExportInspectionTest`):
 - Same export kept live by a real named import → not flagged.
 - Unused `export default` → flagged; a Next.js page default (`next.config` present) → not flagged.
 - Unused `export interface` / `export type` → flagged; used type → not flagged.
-- A symbol referenced only in its own file (incl. `X.displayName = …`) → flagged (per the rule).
+- A symbol self-referenced only in its own file (`X.displayName = …`) → greyed unused.
+- A symbol used in-file by another *live* export (`Outer.inner: Inner`) → redundant-export warning,
+  not greyed; the externally-consumed carrier is not reported.
+- A symbol used in-file only by a *dead* sibling → both greyed unused.
 - `export { x } from './y'` is left to `DeadReExportInspection` — `DeadExportInspection` does not
   also flag it.
 
@@ -112,6 +133,5 @@ have teeth, as done for the re-export work.
 
 ## Out of scope
 
-- Distinguishing "unused entirely" from "used only internally / can be made local" — the chosen
-  rule collapses both into one flag.
-- A quick-fix to delete or de-export the symbol (future).
+- A quick-fix to delete the symbol (unused case) or strip the `export` keyword (redundant case)
+  (future).

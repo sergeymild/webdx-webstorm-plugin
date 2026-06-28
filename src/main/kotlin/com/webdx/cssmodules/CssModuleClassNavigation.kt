@@ -2,6 +2,7 @@ package com.webdx.cssmodules
 
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
 import com.intellij.psi.css.CssClass
 import com.intellij.psi.util.PsiTreeUtil
 
@@ -50,9 +51,7 @@ internal object CssModuleClassNavigation {
             return null
         }
 
-        val cssClass = PsiTreeUtil.collectElementsOfType(declaringFile, CssClass::class.java)
-            .firstOrNull { it.name?.removePrefix(".") == name }
-        val target = cssClass ?: BamSelectors.bamClassDeclarations(declaringFile)[name]?.firstOrNull()
+        val target = findClassDeclaration(declaringFile, name)
         if (target == null) {
             log.warn("[CSS-NAV] bail: no CssClass or bam selector for '$name' in ${declaringFile.name}")
             return null
@@ -60,6 +59,38 @@ internal object CssModuleClassNavigation {
 
         log.warn("[CSS-NAV] OK: '$binding.$name' -> ${declaringFile.name} (module=${moduleFile.name})")
         return target
+    }
+
+    /** The declaration of class [name] in [declaringFile] — a literal `.name` or a bam selector. */
+    private fun findClassDeclaration(declaringFile: PsiFile, name: String): PsiElement? {
+        val cssClass = PsiTreeUtil.collectElementsOfType(declaringFile, CssClass::class.java)
+            .firstOrNull { it.name?.removePrefix(".") == name }
+        return cssClass ?: BamSelectors.bamClassDeclarations(declaringFile)[name]?.firstOrNull()
+    }
+
+    /**
+     * Resolves the `.name` of an SCSS `@extend .name` at leaf [element] to the class declaration
+     * it references, via the module's import graph (own file wins on a name clash). Returns null
+     * when [element] is not on such a reference or the class isn't declared in scope.
+     */
+    fun resolveExtendTarget(element: PsiElement): PsiElement? {
+        val name = extendClassRefNameAt(element) ?: return null
+        val file = element.containingFile?.originalFile ?: return null
+        val declaringFile = CssModules.collectClassOrigins(file)[name] ?: return null
+        return findClassDeclaration(declaringFile, name)
+    }
+
+    /** The class name extended at leaf [element] inside `@extend .name`, or null. */
+    private fun extendClassRefNameAt(element: PsiElement): String? {
+        if (element.firstChild != null) return null // leaves only
+        val file = element.containingFile?.originalFile ?: return null
+        if (!CssModules.isModuleFileName(file.name)) return null
+        val range = element.textRange ?: return null
+        val text = file.text
+        for (g in CssModules.extendClassRefRanges(text)) {
+            if (range.startOffset <= g.last && g.first < range.endOffset) return text.substring(g.first, g.last + 1)
+        }
+        return null
     }
 
     /**
@@ -96,5 +127,24 @@ internal object CssModuleClassNavigation {
         val name = element.text
         if (name.isEmpty() || !name.first().isJavaIdentifierStart()) return false
         return CssModules.prevMeaningfulLeaf(element)?.text == "."
+    }
+
+    /**
+     * True when [element] is a leaf on a class-selector DECLARATION inside a CSS-module file —
+     * a literal `.class` selector or a "bam" `&__x`/`#{$var}__x` selector. Used by the
+     * GotoDeclaration action to decide whether Cmd+Click on the declaration should Show Usages
+     * (so the developer reaches a dynamic `styles[variant]` application site). Cheap (current
+     * file only), safe to call on the EDT.
+     */
+    fun isModuleClassDeclarationLeaf(element: PsiElement): Boolean {
+        if (element.firstChild != null) return false
+        val file = element.containingFile?.originalFile ?: return false
+        if (!CssModules.isModuleFileName(file.name)) return false
+        val cssClass = PsiTreeUtil.getParentOfType(element, CssClass::class.java, false)
+        if (cssClass != null) {
+            // `.name` inside `@extend .name` is a reference, not a declaration — exclude it.
+            return !CssModules.rangeOverlapsAny(cssClass.textRange, CssModules.extendClassRefRanges(file.text))
+        }
+        return BamSelectors.bamClassForElement(element) != null
     }
 }

@@ -98,9 +98,16 @@ class CssModuleFindUsagesHandlerFactory : FindUsagesHandlerFactory() {
 
             // JS files that import this module OR any module that transitively @imports it
             // (Sass inlines the class into the consumer's `styles`), with the local binding(s) used.
+            // In the same pass, collect SCSS `@extend .className` sites in those importing modules:
+            // an `@extend` inlines the class, so it's a real usage of the declaration.
             val jsImporters = LinkedHashMap<PsiFile, MutableSet<String>>()
+            val extendUsages = ArrayList<UsageInfo>()
             for (vf in CssModules.modulesTransitivelyImporting(moduleFile)) {
                 val consumer = psiManager.findFile(vf) ?: continue
+                for (g in CssModules.extendClassRefRanges(consumer.text)) {
+                    if (consumer.text.substring(g.first, g.last + 1) != className) continue
+                    consumer.findElementAt(g.first)?.let { extendUsages.add(UsageInfo(it)) }
+                }
                 for ((file, bindings) in CssModules.findImporters(consumer)) {
                     if (!CssModules.isJsLikeFileName(file.name)) continue
                     if (bindings.isEmpty()) continue
@@ -108,30 +115,49 @@ class CssModuleFindUsagesHandlerFactory : FindUsagesHandlerFactory() {
                 }
             }
 
-            var count = 0
+            // Static references (`<binding>.className` / `<binding>['className']`) are the real
+            // usages. Dynamic `<binding>[<computed>]` sites (e.g. `styles[variant]`) can't be tied
+            // to a specific class, so they're only a FALLBACK: reported when the class has no static
+            // reference at all (reachable only dynamically), never mixed into a statically-used
+            // class's results (that would list `styles[variant]` under every class — noise).
+            val staticUsages = ArrayList<UsageInfo>()
+            val dynamicSites = ArrayList<UsageInfo>()
             for ((file, bindings) in jsImporters) {
-                // dot access: `<binding>.className`
-                val leaves = PsiTreeUtil.collectElements(file) { el ->
-                    el.firstChild == null && el.textLength == className.length && el.text == className
-                }
-                for (leaf in leaves) {
-                    val dot = prevMeaningfulLeaf(leaf) ?: continue
-                    if (dot.text != ".") continue // must be a `.className` property access
-                    val qualifier = prevMeaningfulLeaf(dot) ?: continue
-                    if (qualifier.text !in bindings) continue // qualified by a module import binding
-                    if (!processor.process(UsageInfo(leaf))) return@compute false
-                    count++
-                }
-                // bracket access: `<binding>['className']` (e.g. `--`-modifier names)
-                val bracketLeaves = PsiTreeUtil.collectElements(file) { it.firstChild == null }
-                for (leaf in bracketLeaves) {
-                    val (qualifier, member) = CssModules.bracketMemberAccess(leaf) ?: continue
-                    if (member != className || qualifier !in bindings) continue
-                    if (!processor.process(UsageInfo(leaf))) return@compute false
-                    count++
+                for (leaf in PsiTreeUtil.collectElements(file) { it.firstChild == null }) {
+                    // dot access: `<binding>.className`
+                    if (leaf.textLength == className.length && leaf.text == className) {
+                        val dot = prevMeaningfulLeaf(leaf)
+                        val qualifier = dot?.takeIf { it.text == "." }?.let { prevMeaningfulLeaf(it) }
+                        if (qualifier != null && qualifier.text in bindings) {
+                            staticUsages.add(UsageInfo(leaf))
+                            continue
+                        }
+                    }
+                    // static bracket access: `<binding>['className']` (e.g. `--`-modifier names)
+                    val bm = CssModules.bracketMemberAccess(leaf)
+                    if (bm != null && bm.second == className && bm.first in bindings) {
+                        staticUsages.add(UsageInfo(leaf))
+                        continue
+                    }
+                    // dynamic bracket access: `<binding>[<computed>]`
+                    val dynQualifier = CssModules.dynamicBracketQualifier(leaf)
+                    if (dynQualifier != null && dynQualifier.text in bindings) {
+                        dynamicSites.add(UsageInfo(dynQualifier))
+                    }
                 }
             }
-            log.warn("[CSS-SCOPED] reported $count usage(s) for '$className' via ${jsImporters.keys.map { it.name }}")
+            // Static `styles.class` accesses and SCSS `@extend .class` sites are both real usages;
+            // dynamic `styles[variant]` sites are only a fallback when there's no real usage at all.
+            val realUsages = staticUsages + extendUsages
+            val toReport = if (realUsages.isNotEmpty()) realUsages else dynamicSites
+            for (usage in toReport) {
+                if (!processor.process(usage)) return@compute false
+            }
+            log.warn(
+                "[CSS-SCOPED] reported ${toReport.size} usage(s) for '$className' " +
+                    "(${staticUsages.size} static, ${extendUsages.size} @extend, ${dynamicSites.size} dynamic) " +
+                    "via ${jsImporters.keys.map { it.name }}",
+            )
             true
         }
     }

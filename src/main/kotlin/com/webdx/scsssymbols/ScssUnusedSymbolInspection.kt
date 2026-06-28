@@ -20,6 +20,9 @@ import com.intellij.psi.PsiElementVisitor
  */
 class ScssUnusedSymbolInspection : LocalInspectionTool() {
 
+    override fun getStaticDescription(): String =
+        "An SCSS variable, function, mixin, or placeholder that is never used through the @use / @import / @forward graph."
+
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         val file = holder.file
         val name = file.name.lowercase()

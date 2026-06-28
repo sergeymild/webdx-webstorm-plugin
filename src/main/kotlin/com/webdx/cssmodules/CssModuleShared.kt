@@ -1,6 +1,7 @@
 package com.webdx.cssmodules
 
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiComment
@@ -25,6 +26,24 @@ internal object CssModules {
 
     private val SCSS_IMPORT = Regex("""@(?:import|use|forward)\b([^;{}\n]*)""")
     private val QUOTED = Regex("""['"]([^'"]+)['"]""")
+
+    /** `@extend .className` — a class-selector extend. The bare class name is group 1. */
+    private val EXTEND_CLASS = Regex("""@extend\s+\.([\w-]+)""")
+
+    /**
+     * Name-token ranges (the bare class name, no leading dot) of every `@extend .name` in [text].
+     * The platform parses the `.name` inside `@extend` as a [CssClass] PSI node identical to a
+     * real selector declaration; these ranges let callers tell the two apart so an `@extend` is
+     * treated as a class REFERENCE, not a declaration.
+     */
+    fun extendClassRefRanges(text: String): List<IntRange> =
+        EXTEND_CLASS.findAll(text).map { it.groups[1]!!.range }.toList()
+
+    /** True if [range] overlaps any range in [ranges] (inclusive `IntRange` ends). */
+    fun rangeOverlapsAny(range: TextRange?, ranges: List<IntRange>): Boolean {
+        if (range == null) return false
+        return ranges.any { range.startOffset <= it.last && it.first < range.endOffset }
+    }
 
     /** All paths referenced by `@import`/`@use`/`@forward` in SCSS [text], in order. */
     fun scssImportPaths(text: String): List<String> =
@@ -71,12 +90,19 @@ internal object CssModules {
             n.endsWith(".mjs") || n.endsWith(".cjs")
     }
 
-    /** All class names declared in a CSS-module file (deduped, dot stripped). */
-    fun collectClassNames(moduleFile: PsiFile): List<String> =
-        (PsiTreeUtil.collectElementsOfType(moduleFile, CssClass::class.java)
+    /**
+     * All class names DECLARED in a CSS-module file (deduped, dot stripped). A `.name` sitting
+     * inside an `@extend .name` is a reference to a class declared elsewhere, not a declaration,
+     * so it is excluded (the platform parses it as a [CssClass] indistinguishable from a real one).
+     */
+    fun collectClassNames(moduleFile: PsiFile): List<String> {
+        val extendRanges = extendClassRefRanges(moduleFile.text)
+        return (PsiTreeUtil.collectElementsOfType(moduleFile, CssClass::class.java)
+            .filterNot { rangeOverlapsAny(it.textRange, extendRanges) }
             .mapNotNull { it.name?.removePrefix(".")?.takeIf(String::isNotEmpty) } +
             BamSelectors.bamClassDeclarations(moduleFile).keys)
             .distinct()
+    }
 
     /** The CSS-module files directly imported by [scssFile] via @import/@use/@forward. */
     fun directModuleImports(scssFile: PsiFile): List<PsiFile> {
@@ -309,6 +335,13 @@ internal object CssModules {
         var hasJsConsumer = false
         for (vf in modulesTransitivelyImporting(moduleFile)) {
             val consumer = psiManager.findFile(vf) ?: continue
+            // SCSS `@extend .name` in a module that (transitively) imports moduleFile consumes
+            // that class — it inlines moduleFile's declaration. Counts as a use even though it is
+            // never referenced as `styles.<name>` from JS.
+            for (m in EXTEND_CLASS.findAll(consumer.text)) {
+                val extended = m.groupValues[1]
+                if (extended in ownClasses) used.add(extended)
+            }
             for ((file, bindings) in findImporters(consumer)) {
                 if (!isJsLikeFileName(file.name)) continue // only JS files reference styles.<class>
                 hasJsConsumer = true
@@ -322,7 +355,16 @@ internal object CssModules {
                             if (member.text in ownClasses) used.add(member.text)
                             return@forEach
                         }
-                        // bracket access: `<binding>['member']` (needed for `--`-modifier
+                        // bracket access `<binding>[...]`: a static string literal is a use of
+                        // that one class (handled below); a computed/dynamic key (`styles[variant]`
+                        // / `styles[`a${x}`]`) can't be resolved, so EVERY class of the module is
+                        // considered used (never falsely flagged — mirrors the RN-styles fix).
+                        if (leaf.text == "[") {
+                            val qualifier = dynamicBracketQualifier(leaf) ?: return@forEach
+                            if (qualifier.text in bindings) used.addAll(ownClasses)
+                            return@forEach
+                        }
+                        // static bracket access: `<binding>['member']` (needed for `--`-modifier
                         // names, which are not valid JS identifiers for dot access)
                         val (qualifier, member) = bracketMemberAccess(leaf) ?: return@forEach
                         if (qualifier in bindings && member in ownClasses) used.add(member)
@@ -360,6 +402,26 @@ internal object CssModules {
         val q = qualifier.text
         if (q.isEmpty() || !q.first().isJavaIdentifierStart()) return null
         return q to key
+    }
+
+    /**
+     * If [openBracket] (a leaf whose text is `[`) opens a DYNAMIC bracket access
+     * `<qualifier>[<computed>]` — the key is NOT a static single/double-quoted string
+     * (`styles[variant]`, `styles[`a${x}`]`) — return the qualifier leaf; else null.
+     * A static-string key (`styles['x']`) yields null: those resolve to one class via
+     * [bracketMemberAccess]. Chained access (`x.styles[...]`) yields null so we don't
+     * mistake a property named like an import binding for the binding itself.
+     */
+    fun dynamicBracketQualifier(openBracket: PsiElement): PsiElement? {
+        if (openBracket.firstChild != null || openBracket.text != "[") return null
+        val qualifier = prevMeaningfulLeaf(openBracket) ?: return null
+        val q = qualifier.text
+        if (q.isEmpty() || !q.first().isJavaIdentifierStart()) return null
+        val dotBeforeQ = prevMeaningfulLeaf(qualifier)
+        if (dotBeforeQ != null && dotBeforeQ.text == ".") return null // chained: x.styles[...]
+        val inside = nextMeaningfulLeaf(openBracket) ?: return null
+        if (stripQuotes(inside.text) != null) return null // static string key -> not dynamic
+        return qualifier
     }
 
     private fun stripQuotes(s: String): String? {

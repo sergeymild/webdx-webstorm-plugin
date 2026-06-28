@@ -12,6 +12,9 @@ import com.intellij.psi.PsiElementVisitor
  */
 class CssModuleUnknownClassInspection : LocalInspectionTool() {
 
+    override fun getStaticDescription(): String =
+        "A styles.* access whose class is not declared in the imported CSS module."
+
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         val file = holder.file
         if (!CssModules.isJsLikeFileName(file.name)) return PsiElementVisitor.EMPTY_VISITOR

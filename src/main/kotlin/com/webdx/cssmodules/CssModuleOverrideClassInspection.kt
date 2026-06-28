@@ -15,6 +15,9 @@ import com.intellij.psi.css.CssClass
  */
 class CssModuleOverrideClassInspection : LocalInspectionTool() {
 
+    override fun getStaticDescription(): String =
+        "A CSS-module class whose name is also declared in a module it @imports, so the local rule shadows the imported one."
+
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         val file = holder.file
         if (!CssModules.isModuleFileName(file.name)) return PsiElementVisitor.EMPTY_VISITOR

@@ -34,6 +34,7 @@ class CssModuleDirectNavigationProvider : DirectNavigationProvider {
         }
 
         val target = CssModuleClassNavigation.resolveTarget(element)
+            ?: CssModuleClassNavigation.resolveExtendTarget(element)
         if (target != null) {
             log.warn("[CSS-DIRECTNAV] RESOLVED -> ${target.containingFile?.name}")
         }

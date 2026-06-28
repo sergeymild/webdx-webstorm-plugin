@@ -11,6 +11,9 @@ import com.intellij.psi.PsiElementVisitor
 /** Validates the `t(key, { options })` interpolation object against the key's `{{placeholders}}`. */
 class I18nInterpolationInspection : LocalInspectionTool() {
 
+    override fun getStaticDescription(): String =
+        "An unknown or missing interpolation option for a t('key', { ... }) call."
+
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         return object : PsiElementVisitor() {
             override fun visitElement(element: PsiElement) {

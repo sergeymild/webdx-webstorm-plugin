@@ -19,6 +19,65 @@ Build a distributable zip: `./gradlew buildPlugin` → `build/distributions/webd
 `BasePlatformTestCase`). All features resolve from source files, so they work on the
 tsgo engine where the TS language service doesn't load plugins.
 
+## 1.11.2 — 2026-06-25
+### Fixed
+- **Tool-window stripe icon stayed grey when selected.** The icon used custom greys
+  (`#6E6E6E` / `#AFB1B3`) the platform's icon patcher doesn't recognise, so it wasn't recoloured to
+  white on the selected (highlighted) stripe button. Switched to WebStorm's standard tool-window
+  palette colours — `#6C707E` (`Gray6`, light theme) and `#CED0D6` (`Gray11`, dark theme, via the
+  `_dark` variant) — the same values JetBrains' own tool-window icons use. The platform now picks the
+  right file per theme and recolours the icon to white when the tool window is selected.
+
+## 1.11.1 — 2026-06-25
+### Fixed
+- **Duplicate inspection warnings.** Every inspection was registered once per JS/TS dialect
+  (`JavaScript` + `TypeScript` + `TypeScript JSX` + `ECMAScript 6` + `JSX Harmony`) and once per
+  CSS dialect (`SCSS`/`SASS`/`LESS`/`CSS`). Because `localInspection` applies to dialects by
+  default, those registrations overlapped and the same problem (e.g. "Unknown interpolation
+  variable …") showed up to four times on one element. Each inspection is now registered once on its
+  base language (`JavaScript` or `CSS`), which still covers every dialect but matches each file
+  exactly once. A regression test asserts no implementation class is registered more than once. The
+  surviving short names dropped their language suffix (e.g. `DeadExportTsx` → `DeadExport`).
+
+## 1.11.0 — 2026-06-25
+### Added
+- **Project-wide analysis tool window** (`com.webdx.analysis`). A WebDX button in the left
+  tool-window stripe opens a panel with one **Run** button per inspection family (unused
+  CSS-module classes, unknown CSS classes, CSS class overrides, unused SCSS symbols,
+  unknown/unused RN style keys, dead exports, dead re-exports, unknown i18n keys, i18n
+  interpolation), plus **Run all analysis** and a **Stop** button. Each button enables only the
+  matching inspection(s) (selected by implementation class, so all per-language registrations are
+  covered) in an in-memory profile that never touches the user's real profile, then runs the whole
+  project through the platform's standard `doInspections` pipeline — the same entry point as
+  "Inspect Code" — so the scan is fully cancellable and findings open in the standard Inspection
+  Results window. The button column tracks the tool-window width (no horizontal scrollbar) and run
+  buttons disable while a scan is in progress. (`WebdxInspectionRunner`, `WebdxAnalysisRunController`,
+  `WebdxAnalysisToolWindowFactory`.)
+- Every WebDX inspection now supplies a static description (`hasStaticDescription` +
+  `getStaticDescription()`), so selecting a result node in the batch Inspection Results view no
+  longer throws "Inspection #X has no description".
+
+### Fixed
+- **Show Usages from SCSS class declarations.** Clicking Go-to-Declaration on a bam/camelCase
+  ampersand selector (`&Prev`, `&Icon`) in a `*.module.scss` now finds its usages in code (the
+  caret had no resolvable CSS reference, so the built-in re-resolve failed); it now starts Find
+  Usages from the resolved element directly. Also fixed an "Empty menu item text" crash from the
+  Go-to-Declaration override by giving it template-presentation text.
+
+## 1.10.0 — 2026-06-22
+- **New: "Export through barrel modules" intention** (`com.webdx.barrels`). Alt+Enter on an
+  exported top-level symbol (`export const/function/class`, `export default`, local `export { X }`)
+  writes `export … from` re-exports into every existing `index.ts(x)` up the directory tree, up to
+  the auto-detected module root. The module root is the first ancestor with a `package.json` or whose
+  `index` is a tsconfig path-alias target, else the highest existing index below the source-root
+  (`@/`/`baseUrl`). Missing `index` files are skipped (never created) and the relative path is adjusted
+  accordingly (multi-segment when levels are skipped). Each line matches the target file's style
+  (quotes, semicolons, `export *` vs named); a default export uses `export { default as X }`
+  (because `export *` does not carry `default`), converting to a named re-export at the lowest level.
+  Already-wired levels are skipped (no duplicate lines); when nothing needs adding the intention is not
+  offered. Consumer files are never touched, and all edits apply as one undoable command. Source-resolved
+  (no TS service). (`BarrelExports`, `BarrelExportIntention`.)
+
 ## 1.9.2 — 2026-06-15
 - **Fix (RN): no false "unused style" on dynamic/bracket access.** `RnStyles.collectUsedKeys` only
   counted dot access + destructuring. A static `styles['key']` now counts as a use, and a

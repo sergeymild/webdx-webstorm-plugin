@@ -13,6 +13,9 @@ import com.intellij.psi.css.CssClass
  */
 class CssModuleUnusedClassInspection : LocalInspectionTool() {
 
+    override fun getStaticDescription(): String =
+        "A class declared in a CSS module that is never referenced via a styles.* access in any importing file."
+
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         val file = holder.file
         if (!CssModules.isModuleFileName(file.name)) return PsiElementVisitor.EMPTY_VISITOR
@@ -27,9 +30,14 @@ class CssModuleUnusedClassInspection : LocalInspectionTool() {
             for (element in elements) bamElementToName[element] = name
         }
 
+        // `.name` inside `@extend .name` is parsed as a CssClass but is a REFERENCE to a class
+        // declared elsewhere — never a declaration to flag here.
+        val extendRanges = CssModules.extendClassRefRanges(file.text)
+
         return object : PsiElementVisitor() {
             override fun visitElement(element: PsiElement) {
                 if (element is CssClass) {
+                    if (CssModules.rangeOverlapsAny(element.textRange, extendRanges)) return
                     val name = element.name?.removePrefix(".")?.takeIf(String::isNotEmpty) ?: return
                     flagIfUnused(element, name)
                     return

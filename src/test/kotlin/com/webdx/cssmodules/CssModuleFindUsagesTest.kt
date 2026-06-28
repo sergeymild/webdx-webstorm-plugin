@@ -86,6 +86,27 @@ class CssModuleFindUsagesTest : BasePlatformTestCase() {
         assertEquals("usages: ${usages.map { it.element?.text }}", 2, usages.size)
     }
 
+    fun testFindsCamelCaseAmpersandConcatUsages() {
+        // `.arrow { &Prev { &Icon {} } }` — `&Prev` -> `.arrowPrev`, nested `&Icon` -> `.arrowPrevIcon`.
+        // Cmd+Click on either selector must list its `styles.*` usages in the importer.
+        val scss = myFixture.addFileToProject(
+            "Arrow.module.scss",
+            ".arrow {\n  &Prev {\n    &Icon { margin-left: 12px; }\n  }\n}",
+        )
+        myFixture.addFileToProject(
+            "Use.tsx",
+            "import styles from './Arrow.module.scss';\n" +
+                "const a = styles.arrowPrev;\nconst b = styles.arrowPrevIcon;\nconst c = styles.arrowPrevIcon;",
+        )
+        val prevOffset = scss.text.indexOf("&Prev") + 2
+        val prevUsages = myFixture.findUsages(scss.findElementAt(prevOffset)!!)
+        assertEquals("arrowPrev usages: ${prevUsages.map { it.element?.text }}", 1, prevUsages.size)
+
+        val iconOffset = scss.text.indexOf("&Icon") + 2
+        val iconUsages = myFixture.findUsages(scss.findElementAt(iconOffset)!!)
+        assertEquals("arrowPrevIcon usages: ${iconUsages.map { it.element?.text }}", 2, iconUsages.size)
+    }
+
     fun testFindsBamClassUsagesViaBracketAccess() {
         val scss = myFixture.addFileToProject(
             "Bam.module.scss",
@@ -102,8 +123,82 @@ class CssModuleFindUsagesTest : BasePlatformTestCase() {
         assertEquals("usages: ${usages.map { it.element?.text }}", 2, usages.size)
     }
 
+    fun testReportsDynamicBracketAccessSite() {
+        // `.neutral` is reachable only via the dynamic `styles[variant]` access — there is no
+        // static `styles.neutral`. The dynamic access site must be reported as its usage so
+        // Find Usages / Cmd+Click can navigate to where the class is applied via the variant.
+        myFixture.addFileToProject(
+            "Card.tsx",
+            "import styles from './Card.module.scss';\n" +
+                "function Card({ variant }) { return styles[variant]; }",
+        )
+        myFixture.configureByText(
+            "Card.module.scss",
+            ".card { }\n.neu<caret>tral { color: grey; }\n.accent { }",
+        )
+
+        val usages = myFixture.findUsages(cssClassAtCaret())
+        assertEquals("usages: ${usages.map { it.element?.containingFile?.name + ":" + it.element?.text }}", 1, usages.size)
+        assertEquals("Card.tsx", usages.first().element?.containingFile?.name)
+    }
+
+    fun testStaticallyUsedClassDoesNotIncludeDynamicSite() {
+        // A class with a real static reference (`styles.bullets`) must report ONLY that — the
+        // dynamic `styles[variant]` site in the same file must NOT be mixed in (the bug: every
+        // class showed `styles[variant]` as an extra usage).
+        myFixture.addFileToProject(
+            "Card.tsx",
+            "import styles from './Card.module.scss';\n" +
+                "function Card({ variant }) {\n" +
+                "  return [styles.card, styles[variant], styles.bullets];\n" +
+                "}",
+        )
+        myFixture.configureByText(
+            "Card.module.scss",
+            ".card { }\n.neutral { }\n.accent { }\n.bul<caret>lets { }",
+        )
+
+        val usages = myFixture.findUsages(cssClassAtCaret())
+        assertEquals("usages: ${usages.map { it.element?.text }}", 1, usages.size)
+        assertEquals("bullets", usages.first().element?.text)
+    }
+
+    fun testDynamicSiteReportedOnlyForClassWithoutStaticUse() {
+        // Same fixture: `.neutral` has NO static reference, so the dynamic `styles[variant]` site
+        // IS its (only) usage — the fallback kicks in exactly for dynamic-only classes.
+        myFixture.addFileToProject(
+            "Card.tsx",
+            "import styles from './Card.module.scss';\n" +
+                "function Card({ variant }) {\n" +
+                "  return [styles.card, styles[variant], styles.bullets];\n" +
+                "}",
+        )
+        myFixture.configureByText(
+            "Card.module.scss",
+            ".card { }\n.neu<caret>tral { }\n.accent { }\n.bullets { }",
+        )
+
+        val usages = myFixture.findUsages(cssClassAtCaret())
+        assertEquals("usages: ${usages.map { it.element?.text }}", 1, usages.size)
+        assertEquals("styles", usages.first().element?.text)
+    }
+
+    fun testDoesNotReportDynamicSiteForOtherQualifier() {
+        // A dynamic `other[variant]` on an unrelated object must NOT be reported as a usage.
+        myFixture.addFileToProject(
+            "Card.tsx",
+            "import styles from './Card.module.scss';\n" +
+                "const other = {};\nfunction Card({ variant }) { return other[variant]; }",
+        )
+        myFixture.configureByText("Card.module.scss", ".neu<caret>tral { color: grey; }")
+
+        val usages = myFixture.findUsages(cssClassAtCaret())
+        assertEquals("usages: ${usages.map { it.element?.text }}", 0, usages.size)
+    }
+
     fun testReportsUsagesThroughAtImportChain() {
-        // common is @import-ed into Comp.module.scss (CSS-to-CSS); Comp.tsx uses styles.shared.
+        // common is @import-ed into Comp.module.scss (CSS-to-CSS); Comp.tsx uses styles.shared
+        // AND Comp.module.scss `@extend .shared`. Both kinds of usage must be reported.
         myFixture.addFileToProject(
             "Comp.module.scss",
             "@import './common.module.scss';\n.local { @extend .shared; }",
@@ -118,15 +213,41 @@ class CssModuleFindUsagesTest : BasePlatformTestCase() {
         myFixture.configureByText("common.module.scss", ".sha<caret>red { color: red; }")
 
         val usages = myFixture.findUsages(cssClassAtCaret())
-        // Only the two styles.shared in Comp.tsx (through the @import chain).
-        // The @extend .shared and Other.module.scss's .shared declaration must NOT appear.
+        // Two `styles.shared` in Comp.tsx + the `@extend .shared` site in Comp.module.scss.
+        // Other.module.scss's own `.shared` declaration must NOT appear.
         assertEquals(
             "usages: ${usages.map { it.element?.containingFile?.name + ":" + it.element?.text }}",
-            2, usages.size,
+            3, usages.size,
+        )
+        assertEquals(
+            "two styles.shared usages in Comp.tsx",
+            2, usages.count { it.element?.containingFile?.name == "Comp.tsx" },
         )
         assertTrue(
-            "all usages must be in Comp.tsx",
-            usages.all { it.element?.containingFile?.name == "Comp.tsx" },
+            "the @extend .shared site in Comp.module.scss is reported",
+            usages.any { it.element?.containingFile?.name == "Comp.module.scss" && it.element?.text == "shared" },
         )
+        assertTrue(
+            "Other.module.scss's own declaration must NOT be a usage",
+            usages.none { it.element?.containingFile?.name == "Other.module.scss" },
+        )
+    }
+
+    fun testReportsExtendClassAsUsageWithoutJsConsumer() {
+        // `.commonButton` is consumed only by `@extend .commonButton` in an importing module —
+        // no `styles.commonButton` anywhere. Find Usages on the declaration must still find it.
+        myFixture.addFileToProject(
+            "Comp.module.scss",
+            "@import './common.module.scss';\n.button { @extend .commonButton; }",
+        )
+        myFixture.configureByText("common.module.scss", ".common<caret>Button { cursor: pointer; }")
+
+        val usages = myFixture.findUsages(cssClassAtCaret())
+        assertEquals(
+            "usages: ${usages.map { it.element?.containingFile?.name + ":" + it.element?.text }}",
+            1, usages.size,
+        )
+        assertEquals("Comp.module.scss", usages.first().element?.containingFile?.name)
+        assertEquals("commonButton", usages.first().element?.text)
     }
 }

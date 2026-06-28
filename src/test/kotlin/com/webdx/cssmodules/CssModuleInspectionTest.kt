@@ -170,6 +170,58 @@ class CssModuleInspectionTest : BasePlatformTestCase() {
         )
     }
 
+    fun testClassUsedOnlyViaExtendIsNotUnused() {
+        // common.commonButton is consumed solely through `@extend .commonButton` in Comp.module.scss
+        // (Comp is used from JS, so the chain has a JS consumer and the inspection runs), but
+        // .commonButton is never referenced as `styles.commonButton`. It must NOT be flagged unused.
+        val common = myFixture.addFileToProject(
+            "src/common.module.scss",
+            ".commonButton { cursor: pointer; }\n.deadInCommon { color: green; }",
+        )
+        myFixture.addFileToProject(
+            "src/Comp.module.scss",
+            "@import './common.module.scss';\n.button { @extend .commonButton; }",
+        )
+        myFixture.addFileToProject(
+            "src/Comp.tsx",
+            "import styles from './Comp.module.scss';\nconst a = styles.button;",
+        )
+        myFixture.configureFromExistingVirtualFile(common.virtualFile)
+        myFixture.enableInspections(CssModuleUnusedClassInspection())
+
+        val descriptions = myFixture.doHighlighting().mapNotNull { it.description }
+        assertFalse(
+            "'commonButton' is used via @extend and must NOT be flagged, got: $descriptions",
+            descriptions.any { it.contains("'commonButton'") },
+        )
+        assertTrue(
+            "'deadInCommon' is never referenced and SHOULD be flagged, got: $descriptions",
+            descriptions.any { it.contains("'deadInCommon'") && it.contains("not used") },
+        )
+    }
+
+    fun testExtendReferenceSiteIsNotFlaggedUnused() {
+        // The `.commonButton` inside `.button { @extend .commonButton }` is a REFERENCE, not a
+        // declaration, so it must not be greyed as an unused module class of Comp.module.scss.
+        myFixture.addFileToProject("src/common.module.scss", ".commonButton { cursor: pointer; }")
+        val comp = myFixture.addFileToProject(
+            "src/Comp.module.scss",
+            "@import './common.module.scss';\n.button { @extend .commonButton; }",
+        )
+        myFixture.addFileToProject(
+            "src/Comp.tsx",
+            "import styles from './Comp.module.scss';\nconst a = styles.button;",
+        )
+        myFixture.configureFromExistingVirtualFile(comp.virtualFile)
+        myFixture.enableInspections(CssModuleUnusedClassInspection())
+
+        val descriptions = myFixture.doHighlighting().mapNotNull { it.description }
+        assertFalse(
+            "@extend .commonButton reference must NOT be flagged unused, got: $descriptions",
+            descriptions.any { it.contains("'commonButton'") },
+        )
+    }
+
     fun testBamClassNotFlaggedAsUnknown() {
         myFixture.addFileToProject(
             "src/Bam.module.scss",
@@ -295,6 +347,31 @@ class CssModuleInspectionTest : BasePlatformTestCase() {
         assertTrue(
             "'sidebar--dead' should be unused, got: $descriptions",
             descriptions.any { it.contains("'sidebar--dead'") && it.contains("not used") },
+        )
+    }
+
+    fun testDynamicBracketAccessSuppressesUnused() {
+        // `styles[variant]` is a computed/dynamic key — we can't tell which classes it hits,
+        // so NO class of that module may be flagged unused (mirrors the real ComparisonCard
+        // case where `.neutral`/`.accent` are reached only via `styles[variant]`).
+        myFixture.addFileToProject(
+            "src/Card.tsx",
+            "import styles from './Card.module.scss';\n" +
+                "function Card({ variant }) {\n" +
+                "  return <div className={[styles.card, styles[variant]].join(' ')} />;\n" +
+                "}",
+        )
+        val scss = myFixture.addFileToProject(
+            "src/Card.module.scss",
+            ".card { color: black; }\n.neutral { color: grey; }\n.accent { color: blue; }",
+        )
+        myFixture.configureFromExistingVirtualFile(scss.virtualFile)
+        myFixture.enableInspections(CssModuleUnusedClassInspection())
+
+        val descriptions = myFixture.doHighlighting().mapNotNull { it.description }
+        assertFalse(
+            "dynamic styles[variant] access must suppress ALL unused flags, got: $descriptions",
+            descriptions.any { it.contains("not used") },
         )
     }
 

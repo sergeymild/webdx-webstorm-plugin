@@ -88,6 +88,21 @@ class CssModuleGotoDeclarationTest : BasePlatformTestCase() {
         assertEquals("&__search", targets[0].text)
     }
 
+    fun testExtendClassResolvesToImportedDeclaration() {
+        // `@extend .commonButton` references the class declared in an @import-ed module;
+        // Cmd+Click on it must navigate to that declaration, not be a dead reference.
+        myFixture.addFileToProject("common.module.scss", ".commonButton { cursor: pointer; }")
+        myFixture.configureByText(
+            "Comp.module.scss",
+            "@import './common.module.scss';\n.button { @extend .common<caret>Button; }",
+        )
+        val targets = targetsAtCaret()
+        assertNotNull("expected a target for @extend .commonButton", targets)
+        assertEquals(1, targets!!.size)
+        assertTrue("target is a CssClass", targets[0] is CssClass)
+        assertEquals("common.module.scss", targets[0].containingFile?.name)
+    }
+
     fun testGoesToBamSelectorViaBracketAccess() {
         // `--`-modifier classes are referenced as `styles['sidebar--expanded']`; Cmd+Click
         // on the string literal must navigate to the `&--expanded` selector.

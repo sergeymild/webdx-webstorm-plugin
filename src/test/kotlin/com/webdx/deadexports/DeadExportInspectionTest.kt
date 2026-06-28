@@ -96,17 +96,58 @@ class DeadExportInspectionTest : BasePlatformTestCase() {
             descriptions.any { it.contains("never used") })
     }
 
-    fun testSameFileOnlyUseStillFlagged() {
-        // `helper` is exported but used only inside its own module; no external consumer -> flagged
-        // (chosen "no external consumer = unused" rule). `Main` is consumed externally -> live.
+    fun testSameFileUseByLiveExportGetsRedundantWarning() {
+        // `helper` is used only inside its own module, but by `Main`, which IS consumed externally.
+        // The symbol is alive but its `export` is redundant -> redundant-export warning, NOT a
+        // dead-code grey-out. `Main` is externally consumed -> no diagnostic at all.
         myFixture.addFileToProject("m.ts",
             "export const helper = () => 1\nexport const Main = () => helper()\n")
         myFixture.addFileToProject("use.ts", "import { Main } from './m'\nconst x = Main\n")
         val descriptions = descriptionsFor("m.ts")
-        assertTrue("internally-only-used export must be flagged, got: $descriptions",
+        assertTrue("helper must get the redundant-export warning, got: $descriptions",
+            descriptions.any { it.contains("'helper'") && it.contains("'export' is redundant") })
+        assertFalse("helper must NOT be greyed as never used, got: $descriptions",
+            descriptions.any { it.contains("never used") })
+        assertFalse("externally-consumed Main must NOT be reported at all, got: $descriptions",
+            descriptions.any { it.contains("'Main'") })
+    }
+
+    fun testSameFileUseByDeadExportStillFlagged() {
+        // `helper` is referenced only by `dead`, and `dead` has no external consumer either.
+        // A reference from a dead sibling does not keep `helper` alive -> both flagged.
+        myFixture.addFileToProject("m.ts",
+            "export const helper = () => 1\nexport const dead = () => helper()\n")
+        val descriptions = descriptionsFor("m.ts")
+        assertTrue("helper referenced only by a dead sibling must be flagged, got: $descriptions",
             descriptions.any { it.contains("'helper'") && it.contains("never used") })
-        assertFalse("externally-consumed export must NOT be flagged, got: $descriptions",
-            descriptions.any { it.contains("'Main'") && it.contains("never used") })
+        assertTrue("the dead sibling itself must be flagged, got: $descriptions",
+            descriptions.any { it.contains("'dead'") && it.contains("never used") })
+    }
+
+    fun testTypeUsedByLiveTypeGetsRedundantWarning() {
+        // The motivating case: `Inner` is referenced only by `Outer`'s field, and `Outer` is
+        // consumed externally. `Inner` is part of `Outer`'s public shape -> alive, but its `export`
+        // is redundant -> redundant-export warning, not a dead-code grey-out.
+        myFixture.addFileToProject("types.ts",
+            "export interface Inner { a: number }\nexport interface Outer { inner: Inner }\n")
+        myFixture.addFileToProject("use.ts",
+            "import type { Outer } from './types'\nconst x: Outer = { inner: { a: 1 } }\n")
+        val descriptions = descriptionsFor("types.ts")
+        assertTrue("Inner must get the redundant-export warning, got: $descriptions",
+            descriptions.any { it.contains("'Inner'") && it.contains("'export' is redundant") })
+        assertFalse("Inner must NOT be greyed as never used, got: $descriptions",
+            descriptions.any { it.contains("never used") })
+        assertFalse("externally-consumed Outer must NOT be reported at all, got: $descriptions",
+            descriptions.any { it.contains("'Outer'") })
+    }
+
+    fun testSelfReferentialTypeStillFlagged() {
+        // A recursive type referencing only itself has no external consumer; the self-reference
+        // does not keep it alive -> flagged.
+        myFixture.addFileToProject("node.ts", "export interface Node { next: Node | null }\n")
+        val descriptions = descriptionsFor("node.ts")
+        assertTrue("self-referential unused type must be flagged, got: $descriptions",
+            descriptions.any { it.contains("'Node'") && it.contains("never used") })
     }
 
     fun testAnonymousDefaultExportFlagged() {

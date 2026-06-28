@@ -14,30 +14,48 @@ import com.intellij.psi.PsiNameIdentifierOwner
 import com.intellij.psi.util.PsiTreeUtil
 
 /**
- * Greys a directly-declared export — `export const/function/class`, `export default`, a local
- * `export { x }`, or `export interface/type/enum` — whose exported name is never reached by any
- * real (non-re-export) consumer through the import / re-export graph. Liveness is delegated to
- * [DeadReExports.Analyzer.isLive], which searches references to the *module file*, so same-file
- * uses (e.g. `SomeFun.displayName = 'SomeFun'`) do not keep an export alive. The `… from`
- * re-export links themselves are owned by [DeadReExportInspection].
+ * Reports a directly-declared export — `export const/function/class`, `export default`, a local
+ * `export { x }`, or `export interface/type/enum` — that no real (non-re-export) consumer reaches
+ * through the import / re-export graph. Two distinct verdicts, via [DeadReExports.Analyzer]:
+ *
+ * - **Reached by an external consumer** ([DeadReExports.Analyzer.isExternallyLive]) → nothing.
+ * - **Used only inside this file** by another *live* export (so the symbol is alive but its `export`
+ *   keyword is redundant, e.g. `PicksItem.profile: PicksProfile`) → a **warning** suggesting it be
+ *   made local.
+ * - **Not reached at all** (incl. a self-reference like `SomeFun.displayName = 'SomeFun'`, or a
+ *   reference from a dead sibling) → greyed as an unused symbol.
+ *
+ * The `… from` re-export links themselves are owned by [DeadReExportInspection].
  */
 class DeadExportInspection : LocalInspectionTool() {
+
+    override fun getStaticDescription(): String =
+        "An exported declaration that no consumer reaches through the project's import / re-export graph."
 
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         val moduleFile = holder.file.originalFile
         if (NextEntryPoints.isEntryPoint(moduleFile)) return PsiElementVisitor.EMPTY_VISITOR
         val analyzer = DeadReExports.Analyzer(moduleFile.project)
 
-        // [symbol], when present, is the declaration the export binds. We consult it only when the
-        // file-based walk has already concluded "dead": a symbol-level reference search is the
-        // alias-safe backstop that catches consumers importing through a tsconfig `paths` alias
-        // (e.g. `@mu-native/ds`), which a file-name-keyed search misses. See
-        // DeadReExports.Analyzer.hasExternalSymbolConsumer.
+        // [symbol], when present, is the declaration the export binds. We consult it as an
+        // alias-safe external backstop: a symbol-level reference search catches consumers importing
+        // through a tsconfig `paths` alias (e.g. `@mu-native/ds`), which the file-name-keyed walk
+        // misses. See DeadReExports.Analyzer.hasExternalSymbolConsumer.
         fun flag(name: String, anchor: PsiElement, symbol: PsiElement?) {
-            if (analyzer.isLive(moduleFile, name)) return
+            // Reached by a real external consumer -> the export is needed, nothing to report.
+            if (analyzer.isExternallyLive(moduleFile, name)) return
             if (symbol != null && analyzer.hasExternalSymbolConsumer(symbol)) return
-            holder.registerProblem(anchor, "Export '$name' is never used (no consumer reaches it)",
-                ProblemHighlightType.LIKE_UNUSED_SYMBOL)
+            if (analyzer.isLive(moduleFile, name)) {
+                // Used, but only inside this file (by a live same-file export). The symbol is alive;
+                // only its `export` keyword is redundant -> a warning, not a dead-code grey-out.
+                holder.registerProblem(anchor,
+                    "Export '$name' is only used in this file; 'export' is redundant (can be made local)",
+                    ProblemHighlightType.WARNING)
+            } else {
+                // Not reached by anyone, anywhere -> genuinely dead, grey it out.
+                holder.registerProblem(anchor, "Export '$name' is never used (no consumer reaches it)",
+                    ProblemHighlightType.LIKE_UNUSED_SYMBOL)
+            }
         }
 
         return object : PsiElementVisitor() {
