@@ -28,11 +28,16 @@ class DeadExportInspection : LocalInspectionTool() {
         if (NextEntryPoints.isEntryPoint(moduleFile)) return PsiElementVisitor.EMPTY_VISITOR
         val analyzer = DeadReExports.Analyzer(moduleFile.project)
 
-        fun flag(name: String, anchor: PsiElement) {
-            if (!analyzer.isLive(moduleFile, name)) {
-                holder.registerProblem(anchor, "Export '$name' is never used (no consumer reaches it)",
-                    ProblemHighlightType.LIKE_UNUSED_SYMBOL)
-            }
+        // [symbol], when present, is the declaration the export binds. We consult it only when the
+        // file-based walk has already concluded "dead": a symbol-level reference search is the
+        // alias-safe backstop that catches consumers importing through a tsconfig `paths` alias
+        // (e.g. `@mu-native/ds`), which a file-name-keyed search misses. See
+        // DeadReExports.Analyzer.hasExternalSymbolConsumer.
+        fun flag(name: String, anchor: PsiElement, symbol: PsiElement?) {
+            if (analyzer.isLive(moduleFile, name)) return
+            if (symbol != null && analyzer.hasExternalSymbolConsumer(symbol)) return
+            holder.registerProblem(anchor, "Export '$name' is never used (no consumer reaches it)",
+                ProblemHighlightType.LIKE_UNUSED_SYMBOL)
         }
 
         return object : PsiElementVisitor() {
@@ -41,7 +46,7 @@ class DeadExportInspection : LocalInspectionTool() {
                     is ES6ExportDefaultAssignment -> {
                         val named = element.namedElement
                         val anchor = (named as? PsiNameIdentifierOwner)?.nameIdentifier ?: named ?: element
-                        flag("default", anchor)
+                        flag("default", anchor, named)
                     }
                     // Local `export { x as y }` only. Re-exports (`… from`) belong to DeadReExportInspection.
                     is ES6ExportSpecifier -> {
@@ -49,14 +54,17 @@ class DeadExportInspection : LocalInspectionTool() {
                         if (decl == null || decl.fromClause != null) return
                         val name = element.declaredName ?: return
                         val anchor = element.alias?.nameIdentifier ?: element.referenceNameElement ?: element
-                        flag(name, anchor)
+                        // The exported name forwards a local binding; resolve to it so the
+                        // symbol-level backstop searches references to the declaration, not the
+                        // `export { … }` specifier.
+                        flag(name, anchor, element.reference?.resolve())
                     }
                     // Inline `export const/function/class/interface/type/enum`.
                     is JSPsiNamedElementBase -> {
                         if (!ES6ImportHandler.isExportedDirectly(element)) return
                         val name = element.name ?: return
                         val anchor = (element as? PsiNameIdentifierOwner)?.nameIdentifier ?: element
-                        flag(name, anchor)
+                        flag(name, anchor, element)
                     }
                 }
             }

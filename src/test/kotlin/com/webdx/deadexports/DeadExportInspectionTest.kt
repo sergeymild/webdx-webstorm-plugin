@@ -118,6 +118,31 @@ class DeadExportInspectionTest : BasePlatformTestCase() {
             descriptions.any { it.contains("'default'") && it.contains("never used") })
     }
 
+    fun testAliasOnlyConsumerNotFlagged() {
+        // Real-world repro (AlertNotification.tsx): the leaf is re-exported by a barrel and the
+        // ONLY consumers import it through a tsconfig `paths` alias ('@ds'), never a relative
+        // path. The file-based walk cannot see alias importers; the symbol-level backstop must,
+        // so the export is NOT flagged. The leaf also imports back from the barrel (file<->barrel
+        // cycle), exactly like the reported file.
+        myFixture.addFileToProject("tsconfig.json",
+            """{ "compilerOptions": { "baseUrl": ".", "paths": { "@ds": ["./design/index.ts"], "@ds/*": ["./design/*"] } } }""")
+        myFixture.addFileToProject("design/helper.ts", "export const helper = 1\n")
+        myFixture.addFileToProject("design/components/AlertNotification.tsx",
+            "import { helper } from '../index'\n" +
+            "export const AlertNotifications = () => helper\n" +
+            "export function showAlertNotification() {}\n")
+        myFixture.addFileToProject("design/index.ts",
+            "export { helper } from './helper'\n" +
+            "export { AlertNotifications, showAlertNotification } from './components/AlertNotification.tsx'\n")
+        myFixture.addFileToProject("AppModalsContainer.tsx",
+            "import { AlertNotifications } from '@ds'\nexport const C = () => AlertNotifications\n")
+        myFixture.addFileToProject("showApiError.ts",
+            "import { showAlertNotification } from '@ds'\nexport const e = () => showAlertNotification()\n")
+        val descriptions = descriptionsFor("design/components/AlertNotification.tsx")
+        assertFalse("alias-consumed exports must NOT be flagged unused, got: $descriptions",
+            descriptions.any { it.contains("never used") })
+    }
+
     fun testMultipleBindingsEachFlagged() {
         // `export const A = 1, B = 2` -> two exported bindings, each queried/flagged independently.
         myFixture.addFileToProject("multi.ts", "export const A = 1, B = 2\n")

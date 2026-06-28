@@ -75,6 +75,81 @@ class DeadReExportsTest : BasePlatformTestCase() {
         assertTrue(analyzer().isLive(moduleFile("a/index.ts"), "Screen"))
     }
 
+    // Repro: barrel re-exports the component with an EXPLICIT .tsx extension in the from-clause,
+    // and the component file itself imports back from the barrel (a file<->barrel cycle, exactly
+    // like AlertNotification.tsx <-> design/index.ts). The leaf export must still be live.
+    fun testLeafLiveThroughExtensionedReExportWithBarrelCycle() {
+        myFixture.addFileToProject("a/Screen.tsx",
+            "import { helper } from '../index'\nexport const Screen = () => helper\n")
+        myFixture.addFileToProject("a/index.ts",
+            "export { helper } from './helper'\nexport { Screen } from './Screen.tsx'\n")
+        myFixture.addFileToProject("a/helper.ts", "export const helper = 1\n")
+        myFixture.addFileToProject("use.ts", "import { Screen } from './a'\nconst x = Screen\n")
+        myFixture.configureByText("trigger.ts", "")
+        assertTrue("leaf export reached via extensioned re-export must be live",
+            analyzer().isLive(moduleFile("a/Screen.tsx"), "Screen"))
+    }
+
+    // Root-cause regression: the only consumer imports the leaf's name through a tsconfig PATH
+    // ALIAS ('@ds') mapped to the barrel, never via a relative path. The file-based isLive walk
+    // misses alias importers (ReferencesSearch on a file is keyed on the file-name word, which
+    // '@ds' does not contain), so the alias-safe symbol search must report the leaf live.
+    fun testSymbolConsumerFoundThroughPathAlias() {
+        myFixture.addFileToProject("tsconfig.json", """
+            {
+              "compilerOptions": {
+                "baseUrl": ".",
+                "paths": { "@ds": ["./a/index.ts"], "@ds/*": ["./a/*"] }
+              }
+            }
+        """.trimIndent())
+        myFixture.addFileToProject("a/Screen.tsx", "export const Screen = () => null\n")
+        myFixture.addFileToProject("a/index.ts", "export { Screen } from './Screen.tsx'\n")
+        myFixture.addFileToProject("use.tsx", "import { Screen } from '@ds'\nconst x = Screen\n")
+        myFixture.configureByText("trigger.ts", "")
+        val screen = PsiTreeUtil.findChildrenOfType(moduleFile("a/Screen.tsx"), com.intellij.psi.PsiNameIdentifierOwner::class.java)
+            .first { it.name == "Screen" }
+        assertFalse("file-based walk alone misses the alias importer",
+            analyzer().isLive(moduleFile("a/Screen.tsx"), "Screen"))
+        assertTrue("symbol search must find the alias importer",
+            analyzer().hasExternalSymbolConsumer(screen))
+    }
+
+    // A symbol used only inside its own module has no EXTERNAL consumer -> backstop says false,
+    // so it does not mask a genuinely-unused export.
+    fun testSymbolConsumerIgnoresSameFileUse() {
+        myFixture.addFileToProject("m.ts",
+            "export const helper = () => 1\nexport const Main = () => helper()\n")
+        myFixture.configureByText("trigger.ts", "")
+        val helper = PsiTreeUtil.findChildrenOfType(moduleFile("m.ts"), com.intellij.psi.PsiNameIdentifierOwner::class.java)
+            .first { it.name == "helper" }
+        assertFalse("same-file-only use must not count as an external consumer",
+            analyzer().hasExternalSymbolConsumer(helper))
+    }
+
+    // A symbol forwarded only by a dead barrel (the forwarding link resolves to it but no one
+    // imports it) must NOT be kept alive: re-export sites are classified out.
+    fun testSymbolConsumerIgnoresReExportForwarding() {
+        myFixture.addFileToProject("a/Screen.tsx", "export const Screen = () => null\n")
+        myFixture.addFileToProject("a/index.ts", "export { Screen } from './Screen.tsx'\n")
+        myFixture.configureByText("trigger.ts", "")
+        val screen = PsiTreeUtil.findChildrenOfType(moduleFile("a/Screen.tsx"), com.intellij.psi.PsiNameIdentifierOwner::class.java)
+            .first { it.name == "Screen" }
+        assertFalse("a bare re-export forwarding is not a real consumer",
+            analyzer().hasExternalSymbolConsumer(screen))
+    }
+
+    // Isolate just the explicit-extension factor: does ReferencesSearch on the file return a
+    // re-export whose from-clause carries the '.tsx' extension?
+    fun testLeafLiveThroughExtensionedReExport() {
+        myFixture.addFileToProject("a/Screen.tsx", "export const Screen = () => null\n")
+        myFixture.addFileToProject("a/index.ts", "export { Screen } from './Screen.tsx'\n")
+        myFixture.addFileToProject("use.ts", "import { Screen } from './a'\nconst x = Screen\n")
+        myFixture.configureByText("trigger.ts", "")
+        assertTrue("leaf reached via '.tsx'-extensioned re-export must be live",
+            analyzer().isLive(moduleFile("a/Screen.tsx"), "Screen"))
+    }
+
     fun testTransitiveChainLiveRoot() {
         // leaf -> mid (re-export) -> top (re-export) -> real import of top.
         myFixture.addFileToProject("leaf.ts", "export const K = 1\n")

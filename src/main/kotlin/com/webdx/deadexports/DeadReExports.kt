@@ -115,6 +115,33 @@ object DeadReExports {
         fun isLive(moduleFile: PsiFile, name: String): Boolean =
             isLive(moduleFile, name, HashSet()).live
 
+        /**
+         * Alias-safe liveness backstop. The file-based [isLive] walk searches references to a
+         * MODULE FILE, and IntelliJ resolves those reverse references through a word index keyed
+         * on the file's own name — so a consumer that imports through a tsconfig `paths` alias
+         * (e.g. `import { X } from '@mu-native/ds'`), whose specifier text shares no word with the
+         * target file's name, is never visited and the export looks dead even though it is used.
+         *
+         * Searching references to the exported SYMBOL instead finds those consumers: the imported
+         * identifier carries the symbol's own name (so the word index reaches the consumer file)
+         * and resolves — through any chain of `export … from` re-exports — back to [symbol].
+         *
+         * Returns true iff some reference to [symbol] is a real (non-re-export) consumer living in
+         * a DIFFERENT file than [symbol]'s own. Same-file references are ignored to preserve the
+         * "used only inside its own module = unused" rule that the file-based walk gives for free.
+         * Re-export sites (`export { symbol } from …`) resolve to [symbol] too but are classified
+         * out, so a symbol forwarded only by dead barrels is not kept alive by the forwarding link.
+         */
+        fun hasExternalSymbolConsumer(symbol: PsiElement): Boolean {
+            val home = symbol.containingFile?.originalFile
+            val homePath = home?.virtualFile?.path ?: home?.name ?: return false
+            return ReferencesSearch.search(symbol, scope).findAll().any { ref ->
+                val refFile = ref.element.containingFile?.originalFile ?: return@any false
+                val refPath = refFile.virtualFile?.path ?: refFile.name
+                refPath != homePath && classify(ref.element) is RefKind.RealConsumer
+            }
+        }
+
         private fun isLive(moduleFile: PsiFile, name: String, visited: MutableSet<Pair<String, String>>): Result {
             val origin = moduleFile.originalFile
             // NOTE: fall back to origin.name only when there is no backing file (in-memory
