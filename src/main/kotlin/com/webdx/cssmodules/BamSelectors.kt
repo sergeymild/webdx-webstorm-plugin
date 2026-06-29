@@ -72,16 +72,22 @@ internal object BamSelectors {
         val vars = collectVariables(file)
         val out = LinkedHashMap<String, MutableList<PsiElement>>()
         for (ruleset in PsiTreeUtil.collectElementsOfType(file, CssRuleset::class.java)) {
-            // only the first selector of a comma group is resolved (BEM rarely comma-groups)
-            val selText = ruleset.selectors.firstOrNull()?.text ?: continue
-            if (selText.trimStart().startsWith("@")) continue // @include/@media container declares no class
-            // Skip plain class selectors — only the `&` / `#{}` forms escape regular
-            // CssClass PSI and need this resolver.
-            if (!selText.contains('&') && !selText.contains("#{")) continue
-            val resolved = resolveRuleset(ruleset, vars, 0) ?: continue
-            val cls = subjectClass(resolved) ?: continue
-            val subject = subjectSelectorOf(ruleset) ?: continue
-            out.getOrPut(cls) { mutableListOf() }.add(subject)
+            val selectors = ruleset.selectors
+            // @include/@media container declares no class (its first selector starts with `@`).
+            if (selectors.firstOrNull()?.text?.trimStart()?.startsWith("@") != false) continue
+            // Resolve EVERY comma-group member, not just the first: a BEM class declared only
+            // as a non-first member (`&__a, &__b {}`) must still be collected.
+            for (selector in selectors) {
+                val selText = selector.text
+                // Skip plain class selectors — only the `&` / `#{}` forms escape regular
+                // CssClass PSI and need this resolver.
+                if (!selText.contains('&') && !selText.contains("#{")) continue
+                val resolved = resolveSelectorText(selText, ruleset, vars, 0) ?: continue
+                val cls = subjectClass(resolved) ?: continue
+                val subject = PsiTreeUtil.getChildrenOfTypeAsList(selector, CssSimpleSelector::class.java)
+                    .lastOrNull() ?: continue
+                out.getOrPut(cls) { mutableListOf() }.add(subject)
+            }
         }
         return out
     }
@@ -155,7 +161,22 @@ internal object BamSelectors {
             val parent = PsiTreeUtil.getParentOfType(ruleset, CssRuleset::class.java, true) ?: return null
             return resolveRuleset(parent, vars, depth + 1)
         }
-        var text = substituteInterpolations(selectorText, vars) ?: return null
+        return resolveSelectorText(selectorText, ruleset, vars, depth)
+    }
+
+    /**
+     * Resolve one selector's text (`#{$var}` substituted, `&` -> the parent ruleset's resolved
+     * FIRST selector). Used per comma-group member; `&` parent resolution intentionally folds
+     * onto the parent's first selector (a parent comma group is rare and ambiguous).
+     */
+    private fun resolveSelectorText(
+        selText: String,
+        ruleset: CssRuleset,
+        vars: Map<String, String>,
+        depth: Int,
+    ): String? {
+        if (depth > 64) return null
+        var text = substituteInterpolations(selText, vars) ?: return null
         if (text.contains('&')) {
             val parent = PsiTreeUtil.getParentOfType(ruleset, CssRuleset::class.java, true) ?: return null
             val parentResolved = resolveRuleset(parent, vars, depth + 1) ?: return null

@@ -161,6 +161,36 @@ class BamSelectorsTest : BasePlatformTestCase() {
         assertEquals("arrowPrev", BamSelectors.bamClassForElement(element))
     }
 
+    fun testCommaGroupedBemMembersAreAllCollected() {
+        // `cards-with-filters-v2.component.scss` shape: a `&`-comma group declares
+        // SEVERAL classes. Every member must be collected — a class declared only as a
+        // non-first member (here `sidebar__emptyState`) otherwise goes missing, which
+        // would falsely redline `styles.emptyState` as an unknown class.
+        val scss = myFixture.addFileToProject(
+            "src/Cards.module.scss",
+            "${'$'}sidebar: '.sidebar';\n#{${'$'}sidebar} {\n" +
+                "  &__cards-with-btn,\n  &__emptyState { width: 100%; }\n" +
+                "  &__a, &__b, &__c { display: none; }\n" +
+                "}",
+        )
+        assertEquals(
+            setOf("sidebar", "sidebar__cards-with-btn", "sidebar__emptyState",
+                "sidebar__a", "sidebar__b", "sidebar__c"),
+            BamSelectors.bamClassDeclarations(scss).keys,
+        )
+    }
+
+    fun testCommaGroupSubjectSelectorPointsAtTheRightMember() {
+        val scss = myFixture.addFileToProject(
+            "src/Cards.module.scss",
+            "${'$'}sidebar: '.sidebar';\n#{${'$'}sidebar} {\n" +
+                "  &__cards-with-btn,\n  &__emptyState { width: 100%; }\n}",
+        )
+        val decl = BamSelectors.bamClassDeclarations(scss)["sidebar__emptyState"]?.single()
+        assertTrue("expected a CssSimpleSelector", decl is CssSimpleSelector)
+        assertEquals("&__emptyState", decl!!.text)
+    }
+
     fun testDescendantSelectorIsIgnored() {
         val scss = myFixture.addFileToProject(
             "src/Desc.module.scss",

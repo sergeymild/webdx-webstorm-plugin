@@ -1,0 +1,715 @@
+@use 'src/assets/styles/quarks/typography/typography';
+@use 'src/assets/styles/global/breakpoints';
+@use 'src/assets/styles/global/variables';
+@use 'src/assets/styles/quarks/palette/palette';
+@use 'src/assets/styles/quarks/spacings/spacings';
+@use 'src/assets/styles/atoms/wysiwyg/lists-in-text-blocks';
+@use 'src/assets/styles/quarks/links/links';
+@use 'src/assets/styles/quarks/icons/icon-success-checkbox';
+@use 'src/components/atoms/link/styles/link-type-text';
+
+$marketo-form: '.website-marketo-form';
+$shortener-section: '.shortener-section';
+
+$marketo-form-label-bottom-spacing: var(--website-spacing-05x);
+$marketo-form-input-border-radius: variables.$border-radius-lg;
+$marketo-form-input-border-width: 2px;
+
+#{$marketo-form} {
+    &__title {
+        margin-top: 0;
+        color: palette.$midnight;
+        margin-bottom: 12px;
+
+        @include typography.heading3();
+
+        &--center {
+            margin-bottom: spacings.$spacing-36;
+            text-align: center;
+        }
+    }
+
+    &:not(:has(#{$marketo-form}__subtitle)) {
+        #{$marketo-form}__title {
+            margin-bottom: spacings.$spacing-36;
+        }
+    }
+
+    &:has(#{$shortener-section}) {
+        #{$marketo-form}__title {
+            margin-bottom: 12px;
+        }
+    }
+
+    &__subtitle {
+        margin-bottom: spacings.$spacing-36;
+        margin-top: 0;
+        color: palette.$midnight-fair;
+
+        @include typography.subtitle();
+    }
+
+    &__form {
+        min-height: 70px;
+
+        ::ng-deep {
+            .mktoForm {
+                display: none; // default state
+
+                width: 100% !important;
+                margin: 0 auto !important;
+                padding: 0 !important;
+
+                * {
+                    -moz-box-sizing: border-box;
+                    box-sizing: border-box;
+                    font-family: inherit, sans-serif;
+                }
+
+                .mktoNotYou,
+                .mktoNotYouCustom {
+                    @include typography.subtitle();
+                }
+
+                #{$shortener-section} {
+                    margin-bottom: spacings.$spacing-20;
+
+                    &__title {
+                        margin-top: 0;
+                        margin-bottom: spacings.$spacing-20;
+                        color: palette.$midnight-fair;
+
+                        @include typography.subtitle();
+                    }
+                }
+
+                .mktoAsterix {
+                    display: none !important;
+                }
+
+                .mktoOffset,
+                .mktoGutter {
+                    display: none !important;
+                }
+
+                .mktoFormRow,
+                .mktoButtonRow {
+                    display: block;
+                    position: relative;
+                    float: none;
+                }
+
+                .mktoButtonRow {
+                    margin-top: var(--website-spacing-2x);
+                }
+
+                .mktoFormRow {
+                    .mktoFieldDescriptor {
+                        margin-top: var(--website-spacing-1x);
+                    }
+
+                    &:first-of-type .mktoFieldDescriptor {
+                        margin-top: 0;
+                    }
+
+                    .mktoHtmlText {
+                        @include lists-in-text-blocks.lists-in-text-blocks();
+                    }
+                }
+
+                .heading-5,
+                .subtitle {
+                    margin-bottom: spacings.$spacing-36;
+                    padding: 0;
+                }
+
+                .subtitle {
+                    margin-top: -24px;
+                }
+
+                .mktoHtmlText.mktoHasWidth {
+                    width: 100% !important;
+
+                    p {
+                        &:nth-child(1) {
+                            margin: spacings.$spacing-20 0 0;
+                        }
+                    }
+                }
+
+                .mktoFieldWrap,
+                .mktoFieldDescriptor,
+                .mktoButtonWrap {
+                    display: block;
+                    float: none !important;
+                    width: 100% !important;
+                }
+
+                .mktoFieldWrap,
+                .mktoButtonWrap {
+                    margin: 0 !important;
+                }
+
+                .mktoLabel {
+                    display: none;
+                }
+
+                .mktoLabel:has(~ select), // needed for dynamicly added select elements
+                .mktoLabel.wrikeSelectLabel,
+                .mktoLabel.wrikeTextareaLabel {
+                    display: block;
+
+                    @include typography.notes();
+
+                    font-weight: 400 !important;
+                    padding-top: 0;
+                    margin-bottom: $marketo-form-label-bottom-spacing;
+                    width: 100% !important;
+                    color: palette.$midnight-middle;
+
+                    strong,
+                    b {
+                        font-weight: 400;
+                    }
+                }
+
+                .mktoLabel:has(~ select),
+                label.mktoLabel.wrikeSelectLabel {
+                    position: relative;
+
+                    &::after {
+                        content: '';
+                        display: block;
+                        pointer-events: none;
+                        position: absolute;
+                        top: calc(100% + #{$marketo-form-input-border-width} + #{$marketo-form-label-bottom-spacing});
+                        right: $marketo-form-input-border-width;
+                        height: 56px;
+                        width: 64px;
+                        border-radius: $marketo-form-input-border-radius;
+                        background-image:
+                            url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 8L9.94975 12.9497L14.8995 8' stroke='%23657694' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E%0A"),
+                            linear-gradient(
+                                90deg,
+                                rgba(248, 249, 251, 0) 0%,
+                                rgba(248, 249, 251, 0.58) 15.62%,
+                                palette.$midnight-skin 37.5%,
+                                palette.$midnight-skin 100%
+                            );
+                        background-repeat: no-repeat, no-repeat;
+                        background-position:
+                            right 21px top 50%,
+                            50% 50%;
+                        z-index: 1;
+                    }
+                }
+
+                input,
+                select,
+                textarea,
+                button {
+                    float: none;
+                }
+
+                input:not([type]),
+                textarea,
+                input[type='text'],
+                input[type='number'],
+                input[type='tel'],
+                input[type='url'],
+                input[type='date'],
+                input[type='email'],
+                select {
+                    width: 100% !important;
+                    height: 60px;
+                    padding: 14px spacings.$spacing-20;
+                    font-size: 18px !important;
+                    line-height: 32px !important;
+                    color: palette.$midnight;
+                    outline: 0;
+                    font-family: inherit;
+                    box-shadow: none;
+                    border-radius: $marketo-form-input-border-radius;
+                    border-width: $marketo-form-input-border-width;
+                    border-style: solid;
+                    border-color: palette.$midnight-light;
+                    transition-duration: 0.15s;
+                    transition-timing-function: linear;
+                    transition-property: border-color, box-shadow, color, transform;
+                    background-color: palette.$midnight-skin;
+
+                    &:not(textarea) {
+                        white-space: nowrap;
+                        word-break: initial;
+                        word-wrap: initial;
+                        hyphens: initial;
+                    }
+
+                    &:focus {
+                        box-shadow: 0 0 0 4px palette.$amber-strong;
+                        border-color: palette.$midnight-easy;
+                    }
+
+                    &::-ms-clear {
+                        display: none;
+                        width: 0;
+                        height: 0;
+                    }
+
+                    &.mktoInvalid {
+                        border-color: palette.$crimson-pie-middle;
+
+                        &#Email ~ .mktoError {
+                            display: block !important;
+                            opacity: 1 !important;
+                        }
+                    }
+                }
+
+                input:not([type]),
+                textarea,
+                input[type='text'],
+                input[type='number'],
+                input[type='tel'],
+                input[type='url'],
+                input[type='date'],
+                input[type='email'] {
+                    &:-ms-input-placeholder {
+                        color: palette.$midnight-middle;
+                    }
+
+                    &::placeholder {
+                        color: palette.$midnight-middle;
+                    }
+                }
+
+                textarea {
+                    min-height: 120px;
+                    max-height: 300px;
+                    padding: 12px 0 2px spacings.$spacing-20 !important;
+                    overflow-x: hidden !important;
+                    overflow-y: auto !important;
+                    resize: vertical !important;
+                }
+
+                select {
+                    -webkit-appearance: none;
+                    -moz-appearance: none;
+                    appearance: none;
+
+                    &::-ms-expand {
+                        display: none;
+                    }
+
+                    &:focus::-ms-value {
+                        background-color: palette.$midnight-skin;
+                        color: palette.$midnight;
+                    }
+                }
+
+                input[type='checkbox'][value='NULL'],
+                option[value='NULL'],
+                input[type='checkbox'][value='NULL'] + label {
+                    display: none !important;
+                }
+
+                .mktoLogicalField.mktoCheckboxList {
+                    width: 100% !important;
+                    float: none;
+
+                    input {
+                        margin-top: 3px;
+                        opacity: 0;
+                        float: left;
+                    }
+
+                    label {
+                        @include typography.notes();
+
+                        color: palette.$midnight-middle;
+
+                        a {
+                            @include link-type-text.style-text-link();
+                        }
+
+                        margin-top: 0;
+                        margin-right: 24px;
+                        margin-bottom: 10px;
+
+                        position: relative;
+
+                        &::before {
+                            content: '';
+                            box-sizing: border-box;
+                            position: absolute;
+                            display: block;
+                            width: 16px;
+                            height: 16px;
+                            border-radius: 4px;
+                            border: 2px solid palette.$midnight-light;
+                            transition-duration: 0.15s;
+                            transition-timing-function: linear;
+                            transition-property: border-color, box-shadow;
+                            background-color: palette.$midnight-skin;
+                            left: -22px;
+                            top: 3px;
+                        }
+
+                        &:last-child {
+                            margin-bottom: 0 !important;
+                        }
+                    }
+
+                    input:checked + label::before {
+                        background-repeat: no-repeat;
+                        background-position: center;
+                        background-size: 10px;
+
+                        @include icon-success-checkbox.icon-success-checkbox($color: palette.$electric-gloom);
+                    }
+
+                    input:focus + label::before {
+                        border-color: palette.$midnight-easy;
+                        box-shadow: 0 0 0 4px palette.$amber-strong;
+                    }
+
+                    & + .mktoError {
+                        left: 1px !important;
+                        right: auto !important;
+                        bottom: 100% !important;
+                        top: auto !important;
+                        transform: translate(0, -7px);
+
+                        .mktoErrorArrowWrap {
+                            border-color: transparent #de3056 transparent;
+                            left: 0;
+                            top: auto;
+                            bottom: -6px;
+                        }
+                    }
+                }
+
+                .mktoButton {
+                    box-shadow: none;
+                    outline: 0;
+                    cursor: pointer;
+                    text-decoration: none;
+                    transition-duration: 0.15s;
+                    transition-timing-function: linear;
+                    transition-property: background-color, border-color, color, box-shadow;
+                    border-width: 2px;
+                    border-radius: variables.$border-radius-lg;
+                    border-style: solid;
+                    font-family: inherit;
+                    user-select: none;
+                    font-weight: 600 !important;
+                    font-size: 20px !important;
+                    line-height: 28px;
+                    min-width: 200px;
+                    padding: 14px 16px;
+                    min-height: 60px;
+                    border-color: var(--website-theme-surface-accent-color) !important;
+                    background-color: var(--website-theme-surface-accent-color) !important;
+                    color: #{palette.$midnight} !important;
+                    width: 100%;
+
+                    .website-theme--klaxoon & {
+                        color: palette.$white !important;
+                        border-radius: 99px;
+
+                        &:not(:disabled):hover,
+                        &:not(:disabled):focus,
+                        &:not(:disabled):active {
+                            background-color: var(--website-theme-surface-accent-color-dark) !important;
+                            color: palette.$white !important;
+                        }
+                    }
+
+                    &::-moz-focus-inner {
+                        padding: 0;
+                        border: 0;
+                    }
+
+                    &:disabled {
+                        cursor: default;
+                        background-color: palette.$midnight-light !important;
+                        border-color: transparent;
+                        color: palette.$midnight-easy;
+                        opacity: 1;
+                    }
+
+                    &:not(:disabled):hover,
+                    &:not(:disabled):focus {
+                        outline: 0;
+                        border-color: var(--website-theme-surface-accent-color-light) !important;
+                        background-color: var(--website-theme-surface-accent-color-light) !important;
+                        color: #{palette.$midnight} !important;
+                    }
+
+                    &:not(:disabled):focus:not(:active) {
+                        box-shadow: 0 0 0 4px palette.$amber-strong;
+                    }
+
+                    &:not(:disabled):active {
+                        border-color: var(--website-theme-surface-accent-color-dark) !important;
+                        background-color: var(--website-theme-surface-accent-color-dark) !important;
+                        color: #{palette.$midnight} !important;
+                    }
+                }
+
+                .mktoError {
+                    position: static;
+                    height: auto;
+                    margin-top: var(--website-spacing-05x);
+
+                    .mktoErrorArrowWrap {
+                        display: none;
+                    }
+
+                    .mktoErrorArrow {
+                        display: none;
+                    }
+
+                    .mktoErrorMsg {
+                        background-color: transparent;
+                        background-image: none;
+                        padding: 0;
+                        text-align: left;
+                        font-size: 14px;
+                        line-height: 20px;
+                        letter-spacing: 0.2px;
+                        color: palette.$crimson-pie-middle;
+                        border-radius: 0;
+                        margin-top: 0;
+                        border: none;
+                        box-shadow: none;
+                        text-shadow: none;
+                        max-width: 100%;
+                    }
+
+                    .mktoErrorMsg * {
+                        padding: 0 !important;
+                    }
+
+                    .mktoErrorMsg a {
+                        color: palette.$white;
+                        text-decoration: underline;
+                    }
+
+                    .mktoErrorMsg a:hover {
+                        text-decoration: none;
+                    }
+
+                    .mktoErrorMsg .mktoErrorDetail {
+                        display: inline;
+                    }
+                }
+
+                .mktoTemplateBox {
+                    word-break: break-word;
+                }
+
+                .mktoNotYouCustom {
+                    cursor: pointer;
+                    color: #4692f3;
+                }
+            }
+        }
+
+        &--show {
+            ::ng-deep.mktoForm {
+                display: block;
+            }
+        }
+    }
+
+    &__checkbox-placeholder {
+        margin-top: spacings.$spacing-20;
+        display: none;
+    }
+
+    &--footer {
+        #{$marketo-form}__title {
+            color: var(--website-theme-text-secondary-color);
+        }
+        #{$marketo-form}__subtitle {
+            color: var(--website-theme-text-title-color);
+        }
+
+        ::ng-deep {
+            .mktoForm {
+                .mktoButtonRow {
+                    .mktoButton {
+                        color: var(--website-theme-surface-invert-color) !important;
+                        border-color: var(--website-theme-surface-invert-color) !important;
+                        background-color: transparent !important;
+                    }
+                }
+            }
+        }
+
+        &.website-theme--dark {
+            ::ng-deep {
+                .mktoForm {
+                    .mktoButtonRow {
+                        .mktoButton {
+                            color: var(--website-theme-surface-accent-color) !important;
+                            border-color: var(--website-theme-surface-accent-color) !important;
+                            background-color: transparent !important;
+                        }
+                    }
+                }
+            }
+        }
+
+        #{$marketo-form}__title {
+            @include typography.heading5;
+        }
+
+        #{$marketo-form}__subtitle {
+            @include typography.notes;
+
+            margin-bottom: spacings.$spacing-20;
+        }
+
+        #{$marketo-form}__title,
+        #{$marketo-form}__subtitle {
+            text-align: left;
+        }
+
+        #{$marketo-form}__form {
+            min-height: unset;
+        }
+
+        ::ng-deep {
+            .mktoForm {
+                display: flex;
+
+                .mktoFormRow {
+                    max-width: 258px;
+                }
+
+                .mktoError .mktoErrorMsg {
+                    color: var(--website-theme-text-error-color);
+                }
+
+                .mktoError .mktoErrorMsg a {
+                    color: var(--website-theme-text-error-color);
+                }
+
+                .mktoButtonRow {
+                    margin-top: 0;
+
+                    .mktoButton {
+                        padding: 10px 16px;
+                        font-weight: 500 !important;
+                        font-size: 16px !important;
+                        line-height: 20px;
+                        min-width: 100px;
+                        min-height: 40px;
+                        height: 40px;
+                        border-color: palette.$electric;
+                        border-radius: variables.$border-radius-md;
+                        color: palette.$electric;
+                        background-color: transparent !important;
+                    }
+                }
+
+                input[type='text'],
+                input[type='email'] {
+                    height: 40px;
+                    margin-right: spacings.$spacing-8;
+                    width: 250px !important;
+                    border-radius: variables.$border-radius-md;
+                }
+
+                input[type='email']::placeholder {
+                    font-size: 16px;
+                }
+            }
+        }
+    }
+}
+
+// Klaxoon-specific styles
+:host.website-marketo-form--klaxoon {
+    .website-marketo-form--footer {
+        display: flex;
+        flex-direction: column;
+
+        @include breakpoints.breakpoint-max(laptop) {
+            align-items: center;
+        }
+
+        .website-marketo-form__checkbox-placeholder:empty {
+            display: none !important;
+        }
+
+        .website-marketo-form__title {
+            color: var(--website-theme-text-title-color) !important;
+            margin-bottom: 20px !important;
+        }
+
+        .website-marketo-form__subtitle {
+            color: var(--website-theme-text-secondary-color) !important;
+            order: 1;
+            margin-top: 20px !important;
+
+            @include breakpoints.breakpoint-max(laptop) {
+                text-align: center;
+            }
+            @include breakpoints.breakpoint-max(tablet) {
+                padding: 0 20px;
+            }
+        }
+        .website-marketo-form__form {
+            @include breakpoints.breakpoint-max(tablet) {
+                padding: 0 20px;
+            }
+            ::ng-deep {
+                .mktoForm {
+                    @include breakpoints.breakpoint-max(tablet) {
+                        flex-wrap: wrap;
+                        justify-content: center;
+                    }
+
+                    .mktoFormRow {
+                        @include breakpoints.breakpoint-max(tablet) {
+                            width: 100%;
+                            max-width: 100%;
+
+                            input[type='email'] {
+                                width: 100% !important;
+                            }
+                        }
+                    }
+
+                    .mktoButtonRow {
+                        .mktoButton {
+                            border-radius: 38px !important;
+                            color: var(--website-theme-surface-invert-color) !important;
+                            border-color: var(--website-theme-surface-invert-color) !important;
+                            &:hover {
+                                color: var(--website-theme-surface-invert-color) !important;
+                                background-color: var(--website-theme-surface-invert-color-hover) !important;
+                            }
+                        }
+
+                        @include breakpoints.breakpoint-max(tablet) {
+                            width: 100%;
+                            margin-top: 10px;
+                        }
+                    }
+                }
+            }
+        }
+
+        @include breakpoints.breakpoint-max(tablet) {
+            display: flex;
+        }
+
+        @include breakpoints.breakpoint-min-max(tablet, laptop) {
+            border: none;
+        }
+    }
+}
