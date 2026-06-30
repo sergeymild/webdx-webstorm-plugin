@@ -46,6 +46,11 @@ class DeadExportInspection : LocalInspectionTool() {
             if (analyzer.isExternallyLive(moduleFile, name)) return
             if (symbol != null && analyzer.hasExternalSymbolConsumer(symbol)) return
             if (analyzer.isLive(moduleFile, name)) {
+                // A re-export elsewhere (`export { name } from './thisFile'`) needs this `export`
+                // keyword to compile, so it is NOT redundant — even if that re-export has no consumer
+                // (the dead link is owned by DeadReExportInspection). Suggesting "make local" here
+                // would break the re-export. So stay silent while any re-export forwards the name.
+                if (analyzer.isForwardedByAnyReExport(moduleFile, name)) return
                 // Used, but only inside this file (by a live same-file export). The symbol is alive;
                 // only its `export` keyword is redundant -> a warning, not a dead-code grey-out.
                 holder.registerProblem(anchor,

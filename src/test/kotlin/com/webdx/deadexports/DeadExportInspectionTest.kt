@@ -184,6 +184,26 @@ class DeadExportInspectionTest : BasePlatformTestCase() {
             descriptions.any { it.contains("never used") })
     }
 
+    fun testReExportedTypeNotCalledRedundantEvenIfReExportUnconsumed() {
+        // ProgressBarProps repro: a type used in-file by the live `ProgressBar` component AND
+        // re-exported by the top barrel, but no leaf imports the type through the barrel. The
+        // `export` keyword is REQUIRED for `export type { ProgressBarProps } from …` to compile, so
+        // it must NOT be reported "redundant / can be made local" — nor greyed as never used. The
+        // dead re-export link itself is owned by DeadReExportInspection.
+        myFixture.addFileToProject("UI-KIT/ProgressBar/ProgressBar.tsx",
+            "export interface ProgressBarProps { v: number }\n" +
+                "export const ProgressBar = (p: ProgressBarProps) => p.v\n")
+        myFixture.addFileToProject("UI-KIT/index.tsx",
+            "export { ProgressBar } from './ProgressBar/ProgressBar'\n" +
+                "export type { ProgressBarProps } from './ProgressBar/ProgressBar'\n")
+        myFixture.addFileToProject("use.tsx", "import { ProgressBar } from './UI-KIT'\nconst x = ProgressBar\n")
+        val descriptions = descriptionsFor("UI-KIT/ProgressBar/ProgressBar.tsx")
+        assertFalse("re-exported type must NOT be called redundant, got: $descriptions",
+            descriptions.any { it.contains("'ProgressBarProps'") && it.contains("redundant") })
+        assertFalse("re-exported type must NOT be greyed never-used, got: $descriptions",
+            descriptions.any { it.contains("'ProgressBarProps'") && it.contains("never used") })
+    }
+
     fun testMultipleBindingsEachFlagged() {
         // `export const A = 1, B = 2` -> two exported bindings, each queried/flagged independently.
         myFixture.addFileToProject("multi.ts", "export const A = 1, B = 2\n")

@@ -165,6 +165,26 @@ object DeadReExports {
         fun isExternallyLive(moduleFile: PsiFile, name: String): Boolean =
             isLive(moduleFile, name, sameFile = false, HashSet()).live
 
+        /**
+         * Does any *other* module forward [name] out of [moduleFile] with an `export … from` (a named
+         * specifier or `export *`)? When true, the `export` keyword on [moduleFile]'s declaration is
+         * syntactically REQUIRED for that re-export to compile — so it is never "redundant", even
+         * when the re-export itself has no consumer (the dead link is owned by [DeadReExportInspection]).
+         * A single hop suffices: the immediate `export { name } from './thisFile'` is what depends on
+         * the keyword. Distinct from [isExternallyLive], which discounts a re-export nobody consumes.
+         */
+        fun isForwardedByAnyReExport(moduleFile: PsiFile, name: String): Boolean {
+            val origin = moduleFile.originalFile
+            val pathKey = origin.virtualFile?.path ?: origin.name
+            val refs = refsCache.getOrPut(pathKey) {
+                ReferencesSearch.search(origin, scope).findAll().toList()
+            }
+            return refs.any { ref ->
+                val kind = classify(ref.element)
+                kind is RefKind.ReExportSite && forwardsName(kind.decl, name)
+            }
+        }
+
         private fun isLive(
             moduleFile: PsiFile,
             name: String,
