@@ -2,12 +2,16 @@ package com.webdx.cssmodules
 
 import com.intellij.codeInsight.navigation.actions.GotoDeclarationAction
 import com.intellij.find.actions.ShowUsagesAction
+import com.intellij.lang.ecmascript6.psi.ES6ExportSpecifier
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.ui.popup.JBPopupFactory
+import com.intellij.openapi.util.TextRange
+import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
+import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.util.PsiNavigateUtil
 
 /**
@@ -90,6 +94,15 @@ class CssModuleGotoDeclarationAction : GotoDeclarationAction() {
                         showUsagesFor(element, editor)
                         return
                     }
+                    // Barrel re-export (`export { X } from '…'`): Cmd+Click shows a popup whose FIRST
+                    // entry navigates into the component itself, and whose remaining entries are the
+                    // direct single-hop sites that import/re-export X from this barrel. Always a popup
+                    // (never an auto-jump), with the component pinned first. See BarrelReExportUsages.
+                    val reExportSpec = com.webdx.deadexports.BarrelReExportUsages.reExportSpecifierAt(element)
+                    if (reExportSpec != null) {
+                        showReExportPopup(reExportSpec, editor)
+                        return
+                    }
                 }
             }
         } catch (t: Throwable) {
@@ -106,5 +119,46 @@ class CssModuleGotoDeclarationAction : GotoDeclarationAction() {
     private fun showUsagesFor(element: PsiElement, editor: Editor) {
         val point = JBPopupFactory.getInstance().guessBestPopupLocation(editor)
         ShowUsagesAction.startFindUsages(element, point, editor)
+    }
+
+    /** One selectable row: a label to render and the element to navigate to when chosen. */
+    private class NavRow(val display: String, val target: PsiElement)
+
+    /**
+     * Popup for Cmd+Click on a barrel re-export. The first row navigates into the component itself
+     * (the source declaration the re-export points at); the rest are the direct sites that draw the
+     * name from this barrel. Built by hand (rather than the Show Usages action) so the component
+     * stays pinned first and a single result still shows a list instead of auto-navigating.
+     */
+    private fun showReExportPopup(spec: ES6ExportSpecifier, editor: Editor) {
+        val name = com.webdx.deadexports.BarrelReExportUsages.exportedName(spec) ?: return
+        val barrel = spec.containingFile?.originalFile ?: return
+        val rows = ArrayList<NavRow>()
+        com.webdx.deadexports.BarrelReExportUsages.resolveSource(spec)?.let { source ->
+            val where = source.containingFile?.name ?: "?"
+            rows.add(NavRow("→  $name      ($where)", source))
+        }
+        for (ref in com.webdx.deadexports.BarrelReExportUsages.collect(barrel, name)) {
+            rows.add(rowForUsage(ref))
+        }
+        if (rows.isEmpty()) return
+        JBPopupFactory.getInstance()
+            .createPopupChooserBuilder(rows)
+            .setTitle(name)
+            .setRenderer(SimpleListCellRenderer.create("") { it.display })
+            .setItemChosenCallback { PsiNavigateUtil.navigate(it.target) }
+            .createPopup()
+            .showInBestPositionFor(editor)
+    }
+
+    /** A usage row labelled `file:line   <trimmed source line>`. */
+    private fun rowForUsage(ref: PsiElement): NavRow {
+        val file = ref.containingFile
+        val fileName = file?.name ?: "?"
+        val doc = file?.let { PsiDocumentManager.getInstance(ref.project).getDocument(it) }
+            ?: return NavRow(fileName, ref)
+        val line = doc.getLineNumber(ref.textOffset)
+        val text = doc.getText(TextRange(doc.getLineStartOffset(line), doc.getLineEndOffset(line))).trim()
+        return NavRow("$fileName:${line + 1}      $text", ref)
     }
 }

@@ -1,20 +1,38 @@
 <idea-plugin>
     <id>com.webdx.css-modules-scoped-usages</id>
     <name>WebDX</name>
-    <vendor>WebDX</vendor>
+    <vendor url="https://github.com/sergeymild/webdx-webstorm-plugin">WebDX</vendor>
 
     <description><![CDATA[
-        Developer-experience helpers for a React/TypeScript project, all resolved
-        from source files so they work even when the TypeScript language service
-        does not (e.g. on the TypeScript-Go / tsgo engine).
+        <p><b>React developer-experience helpers for WebStorm &amp; IntelliJ</b> —
+        CSS Modules, react-i18next, React Native styles, barrel exports and dead-code
+        tooling that resolve everything straight from your source files. Because they
+        don't rely on the TypeScript language service, they keep working even on the
+        experimental <b>TypeScript-Go (tsgo)</b> engine, where service plugins like
+        <code>typescript-plugin-css-modules</code> stop loading and
+        <code>styles.</code> completion breaks.</p>
         <ul>
-          <li><b>CSS Modules</b>: scoped Find Usages on a class, sibling-module
-              auto-import, <code>styles.</code> class-name completion, and
-              unknown/unused-class inspections.</li>
+          <li><b>CSS Modules</b> (<code>*.module.scss</code>): <code>styles.</code>
+              class-name completion (Sass <code>@import</code>/<code>@use</code> chain
+              aware), scoped Find Usages, sibling-module auto-import,
+              go-to the effective declaration, unknown/unused/override inspections,
+              and an Alt+Enter <code>@import</code> for SCSS mixins/functions/vars.</li>
           <li><b>i18n (react-i18next)</b>: translation-key completion, an
               unknown-key inspection, go-to-definition and scoped Find Usages on a
               key, plus interpolation-variable completion, checks, and
               go-to-placeholder for <code>t('key', { … })</code>.</li>
+          <li><b>React Native</b> (<code>StyleSheet.create</code>): go-to, scoped
+              Find Usages, unknown/unused-key inspections, and sibling auto-import on
+              <code>styles.&lt;key&gt;</code>.</li>
+          <li><b>Barrel exports</b>: Alt+Enter to re-export a component through every
+              <code>index.ts(x)</code> up to the module root, as one undoable edit.</li>
+          <li><b>Dead-code detection</b>: grey out re-exports and exports that no real
+              consumer reaches through the import graph (Next.js entry points excluded).</li>
+          <li><b>SCSS symbols</b>: unused-symbol inspection, Find Usages and go-to for
+              <code>$variables</code>, <code>@function</code>s, <code>@mixin</code>s and
+              <code>%placeholder</code>s across the <code>@use</code>/<code>@forward</code> graph.</li>
+          <li><b>Project-wide analysis</b> tool window: run any check across the whole
+              project with one click, with Run all and Stop.</li>
         </ul>
     ]]></description>
 
@@ -37,6 +55,9 @@
         <findUsagesHandlerFactory
             order="first"
             implementation="com.webdx.scsssymbols.ScssSymbolFindUsagesHandlerFactory"/>
+        <findUsagesHandlerFactory
+            order="first"
+            implementation="com.webdx.deadexports.BarrelReExportFindUsagesHandlerFactory"/>
         <gotoDeclarationHandler
             implementation="com.webdx.cssmodules.CssModuleGotoDeclarationHandler"/>
         <gotoDeclarationHandler
